@@ -7,13 +7,29 @@
 
 #include "HX711/hx711_lib.h"
 
+// ------------------------------------------------ tensometer config ------------------------------------------------
+
 #define SCALE_CONST 233.82
 #define SCALE_AVERAGE_READS 10
 
 
+
+
+// ------------------------------------------------ tensometer globals ------------------------------------------------
+
 hx711_t tensometer;
 int32_t scale_offset = 0;
 
+
+
+
+
+
+
+
+
+
+// ------------------------------------------------ tensometer ------------------------------------------------
 int32_t tensometer_read_once(){
     int32_t tensometer_data;    
     hx711_read_data(&tensometer, &tensometer_data);
@@ -54,7 +70,7 @@ esp_err_t tensometer_init(){
     return ESP_OK;
 }
 
-
+// ------------------------------------------------ main ------------------------------------------------
 
 void app_main() {
 
