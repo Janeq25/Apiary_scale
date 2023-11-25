@@ -75,8 +75,8 @@ esp_err_t tensometer_init(){
 }
 
 // ------------------------------------------------ buttons ------------------------------------------------
-    char int0_string[16] = {0};
-    int number0 = 0;
+char int0_string[16] = {0};
+int number0 = 0;
 
 void LCD_Button0_test()
 {
@@ -101,8 +101,8 @@ void LCD_Button0_test()
     LCD_writeStr(int0_string);
 }
 
-    char int1_string[16] = {0};
-    int number1 = 0;
+char int1_string[16] = {0};
+int number1 = 0;
 
 void LCD_Button1_test()
 {
@@ -163,7 +163,6 @@ void app_main() {
 
     while(1)
     {
-
         //printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         //printf("tensometer_raw data: %" PRIi32 "\n", tensometer_read_once());
 
