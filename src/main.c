@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <driver/gpio.h>
 
 #include "HD44780/HD44780.h" //display
 #include "HX711/hx711_lib.h" //tensometer
@@ -14,6 +15,11 @@
 #define SCL_PIN  18
 #define LCD_COLS 16
 #define LCD_ROWS 2
+
+// ------------------------------------------------ buttons config ------------------------------------------------
+
+#define BUTTON_0_GPIO 32
+#define BUTTON_1_GPIO 33
 
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
@@ -68,6 +74,103 @@ esp_err_t tensometer_init(){
     return ESP_OK;
 }
 
+// ------------------------------------------------ buttons ------------------------------------------------
+    enum Button_Name {BUTTON_0, BUTTON_1};
+    enum Button_State {PRESSED, RELEASED};
+
+    enum Button_Name Button_Name;
+
+    static enum Button_State ebut0_prev_level = RELEASED; 
+    static enum Button_State ebut1_prev_level = RELEASED;
+   
+    uint8_t but_pin;
+
+    static uint8_t but_pin0;
+    static uint8_t but_pin1;
+   
+    void Button_Init(uint8_t pin0, uint8_t pin1)
+    {
+        but_pin0 = pin0;
+        but_pin1 = pin1;
+
+        gpio_set_direction(but_pin0, GPIO_MODE_INPUT);
+        gpio_set_direction(but_pin1, GPIO_MODE_INPUT);
+        gpio_pullup_en(but_pin0);
+        gpio_pullup_en(but_pin1);
+    }
+
+    enum Button_State eButton_Read(enum Button_Name Button_Name)
+    {
+        enum Button_State ebut_level = RELEASED;
+        enum Button_State ebut_prev_level = RELEASED;
+        
+        switch(Button_Name)
+        {
+        case BUTTON_0:
+            but_pin = but_pin0;
+            break;
+        case BUTTON_1:
+            but_pin = but_pin1;
+            break;
+        default:
+            break;
+        }
+
+        switch(gpio_get_level(but_pin))
+        {
+        case 0:
+            ebut_level = PRESSED;
+            break;
+        case 1:
+            ebut_level = RELEASED;
+            break;
+        default:
+            ebut_level = RELEASED;
+            break;
+        }
+
+        switch(Button_Name)
+        {
+        case BUTTON_0:
+            ebut_prev_level = ebut0_prev_level;
+            ebut0_prev_level = ebut_level;
+            break;
+        case BUTTON_1:
+            ebut_prev_level = ebut1_prev_level;
+            ebut1_prev_level = ebut_level;
+            break;
+        default:
+            break;
+        }
+
+        switch(ebut_prev_level)
+        {
+            case PRESSED:
+                if(ebut_level == RELEASED)
+                {
+                    return PRESSED;
+                }
+                else
+                {
+                    return RELEASED;
+                }
+                break;
+            case RELEASED:
+                if(ebut_level == RELEASED) 
+                {
+                    return RELEASED;
+                }
+                else
+                {
+                    return RELEASED;
+                }
+                break;
+            default:
+                    return RELEASED;
+                break;
+        }
+    }
+
 // ------------------------------------------------ display ------------------------------------------------
 
 void LCD_DemoTask()
@@ -87,22 +190,58 @@ void LCD_DemoTask()
     //LCD_writeChar('K');
 }
 
-// ------------------------------------------------ button ------------------------------------------------
-    char int_string[16] = {0};
-    int number = 0;
+    char int0_string[16] = {0};
+    int number0 = 0;
 
-    void LCD_Button_test()
+void LCD_Button0_test()
+{
+    switch (eButton_Read(BUTTON_0))
     {
-         sprintf(int_string, "%d", number);
-        number++;
-
-        LCD_setCursor(0, 0);
-        LCD_writeStr("Int_val= ");
-        LCD_setCursor(9, 0);
-        LCD_writeStr(int_string);
-
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        case RELEASED:
+            number0 = number0;
+            break;
+        case PRESSED:
+            number0++;
+            break;
+        default:
+            number0 = number0;
+            break;
     }
+
+    sprintf(int0_string, "%d", number0);
+   
+    LCD_setCursor(0, 0);
+    LCD_writeStr("But0_val= ");
+    LCD_setCursor(10, 0);
+    LCD_writeStr(int0_string);
+}
+
+    char int1_string[16] = {0};
+    int number1 = 0;
+
+void LCD_Button1_test()
+{
+    switch (eButton_Read(BUTTON_1))
+    {
+        case RELEASED:
+            number1 = number1;
+            break;
+        case PRESSED:
+            number1++;
+            break;
+        default:
+            number1 = number1;
+            break;
+    }
+
+    sprintf(int1_string, "%d", number1);
+   
+    LCD_setCursor(0, 1);
+    LCD_writeStr("But1_val= ");
+    LCD_setCursor(10, 1);
+    LCD_writeStr(int1_string);
+}
+
 
 // ------------------------------------------------ main ------------------------------------------------
 
@@ -111,6 +250,8 @@ void app_main() {
 
     tensometer_init();
 
+    Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
+   
     LCD_init(LCD_ADDR, SDA_PIN, SCL_PIN, LCD_COLS, LCD_ROWS);
     LCD_home();
     LCD_clearScreen();
@@ -118,9 +259,10 @@ void app_main() {
     while(1)
     {
 
-        printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
+        //printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         //printf("tensometer_raw data: %" PRIi32 "\n", tensometer_read_once());
 
-        LCD_Button_test();
+        LCD_Button0_test();
+        LCD_Button1_test();
     }
 }

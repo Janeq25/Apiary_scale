@@ -3,6 +3,7 @@
         "stdio.h": "c",
         "intr_types.h": "c",
         "inttypes.h": "c",
-        "hx711_lib.h": "c"
+        "hx711_lib.h": "c",
+        "hd44780.h": "c"
     }
 }
