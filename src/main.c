@@ -87,6 +87,23 @@ void LCD_DemoTask()
     //LCD_writeChar('K');
 }
 
+// ------------------------------------------------ button ------------------------------------------------
+    char int_string[16] = {0};
+    int number = 0;
+
+    void LCD_Button_test()
+    {
+         sprintf(int_string, "%d", number);
+        number++;
+
+        LCD_setCursor(0, 0);
+        LCD_writeStr("Int_val= ");
+        LCD_setCursor(9, 0);
+        LCD_writeStr(int_string);
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+
 // ------------------------------------------------ main ------------------------------------------------
 
 
@@ -98,11 +115,12 @@ void app_main() {
     LCD_home();
     LCD_clearScreen();
 
-    while(1){
+    while(1)
+    {
 
         printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         //printf("tensometer_raw data: %" PRIi32 "\n", tensometer_read_once());
 
-        LCD_DemoTask();
+        LCD_Button_test();
     }
 }
