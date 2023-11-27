@@ -24,7 +24,6 @@
 
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
-#define SCALE_CONST 233.82
 #define SCALE_CONST 233.82 
 #define SCALE_AVERAGE_READS 10
 #define TENSOMETER_DOUT_PIN 33
@@ -188,7 +187,7 @@ void app_main() {
     LCD_home();
     LCD_clearScreen();
 
-    Button_Init();
+    Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
 
     while(1){
 
