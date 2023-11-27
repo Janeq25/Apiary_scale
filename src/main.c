@@ -12,6 +12,9 @@
 
 #define SCALE_CONST 233.82
 #define SCALE_AVERAGE_READS 10
+#define TENSOMETER_DOUT_PIN 33
+#define TENSOMETER_SCK_PIN 32
+#define TENSOMETER_GAIN 0
 
 // ------------------------------------------------ thermometer config ------------------------------------------------
 
@@ -59,9 +62,9 @@ int32_t tensometer_read_average(){
 
 esp_err_t tensometer_init(){
 
-    tensometer.dout = 33;
-    tensometer.pd_sck = 32;
-    tensometer.gain = 0;
+    tensometer.dout = TENSOMETER_DOUT_PIN;
+    tensometer.pd_sck = TENSOMETER_SCK_PIN;
+    tensometer.gain = TENSOMETER_GAIN;
 
     if(hx711_init(&tensometer) != ESP_OK){
         printf("ERR - failed to initialise tensometer");
