@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <BUTTONS/buttons.h>
 
 #include "HD44780/HD44780.h" //display
 #include "HX711/hx711_lib.h" //tensometer
@@ -16,6 +17,10 @@
 #define LCD_COLS 16
 #define LCD_ROWS 2
 
+// ------------------------------------------------ buttons config ------------------------------------------------
+
+#define BUTTON_0_GPIO 32
+#define BUTTON_1_GPIO 33
 
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
@@ -86,6 +91,61 @@ esp_err_t tensometer_init(){
     return ESP_OK;
 }
 
+// ------------------------------------------------ buttons ------------------------------------------------
+char int0_string[16] = {0};
+int number0 = 0;
+
+void LCD_Button0_test()
+{
+    switch (eButton_Read(BUTTON_0))
+    {
+        case RELEASED:
+            number0 = number0;
+            break;
+        case PRESSED:
+            number0++;
+            break;
+        default:
+            number0 = number0;
+            break;
+    }
+
+    sprintf(int0_string, "%d", number0);
+   
+    LCD_setCursor(0, 0);
+    LCD_writeStr("But0_val= ");
+    LCD_setCursor(10, 0);
+    LCD_writeStr(int0_string);
+}
+
+char int1_string[16] = {0};
+int number1 = 0;
+
+void LCD_Button1_test()
+{
+    switch (eButton_Read(BUTTON_1))
+    {
+        case RELEASED:
+            number1 = number1;
+            break;
+        case PRESSED:
+            number1++;
+            break;
+        default:
+            number1 = number1;
+            break;
+    }
+
+    sprintf(int1_string, "%d", number1);
+   
+    LCD_setCursor(0, 1);
+    LCD_writeStr("But1_val= ");
+    LCD_setCursor(10, 1);
+    LCD_writeStr(int1_string);
+}
+
+    
+
 // ------------------------------------------------ display ------------------------------------------------
 
 void LCD_DemoTask()
@@ -128,6 +188,8 @@ void app_main() {
     LCD_home();
     LCD_clearScreen();
 
+    Button_Init();
+
     while(1){
 
         //printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
@@ -136,6 +198,7 @@ void app_main() {
         printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
         vTaskDelay(pdMS_TO_TICKS(1000));
 
-        LCD_DemoTask();
+        LCD_Button0_test();
+        LCD_Button1_test();
     }
 }
