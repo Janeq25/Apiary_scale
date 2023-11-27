@@ -6,6 +6,7 @@
 
 #include "HD44780/HD44780.h" //display
 #include "HX711/hx711_lib.h" //tensometer
+#include "DHT11/dht_espidf.h" //thermometer
 
 // ------------------------------------------------ display config ------------------------------------------------
 
@@ -15,17 +16,34 @@
 #define LCD_COLS 16
 #define LCD_ROWS 2
 
+
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
 #define SCALE_CONST 233.82
 #define SCALE_CONST 233.82 
 #define SCALE_AVERAGE_READS 10
+#define TENSOMETER_DOUT_PIN 33
+#define TENSOMETER_SCK_PIN 32
+#define TENSOMETER_GAIN 0
+
+// ------------------------------------------------ thermometer config ------------------------------------------------
+
+#define TERMOMETER_PIN 3
 
 
 // ------------------------------------------------ tensometer globals ------------------------------------------------
 
 hx711_t tensometer;
 int32_t scale_offset = 0;
+
+
+// ------------------------------------------------ thermometer globals ------------------------------------------------
+
+struct dht_reading thermometer_data;
+
+
+
+
 
 // ------------------------------------------------ tensometer ------------------------------------------------
 int32_t tensometer_read_once(){
@@ -54,12 +72,12 @@ int32_t tensometer_read_average(){
 
 esp_err_t tensometer_init(){
 
-    tensometer.dout = 33;
-    tensometer.pd_sck = 32;
-    tensometer.gain = 0;
+    tensometer.dout = TENSOMETER_DOUT_PIN;
+    tensometer.pd_sck = TENSOMETER_SCK_PIN;
+    tensometer.gain = TENSOMETER_GAIN;
 
     if(hx711_init(&tensometer) != ESP_OK){
-        printf("failed to initialise tensometer");
+        printf("ERR - failed to initialise tensometer");
         return ESP_ERR_INVALID_RESPONSE;
     }
 
@@ -85,14 +103,25 @@ void LCD_DemoTask()
     //LCD_writeChar('O');
     //LCD_setCursor(1, 1);
     //LCD_writeChar('K');
+// ------------------------------------------------ thermometer ------------------------------------------------
+
+void thermometer_read(){
+    read_dht_sensor_data((gpio_num_t)TERMOMETER_PIN, DHT11, &thermometer_data);
+
+
 }
 
 // ------------------------------------------------ main ------------------------------------------------
 
 
+
+
 void app_main() {
 
+   // ------------------------------------------------ initializations ------------------------------------------------
+
     tensometer_init();
+    
 
     LCD_init(LCD_ADDR, SDA_PIN, SCL_PIN, LCD_COLS, LCD_ROWS);
     LCD_home();
@@ -100,8 +129,11 @@ void app_main() {
 
     while(1){
 
-        printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
+        //printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         //printf("tensometer_raw data: %" PRIi32 "\n", tensometer_read_once());
+        thermometer_read();
+        printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
         LCD_DemoTask();
     }
