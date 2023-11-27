@@ -6,13 +6,16 @@
 
 
 #include "HX711/hx711_lib.h"
+#include "DHT11/dht_espidf.h"
 
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
 #define SCALE_CONST 233.82
 #define SCALE_AVERAGE_READS 10
 
+// ------------------------------------------------ thermometer config ------------------------------------------------
 
+#define TERMOMETER_PIN 3
 
 
 // ------------------------------------------------ tensometer globals ------------------------------------------------
@@ -21,9 +24,9 @@ hx711_t tensometer;
 int32_t scale_offset = 0;
 
 
+// ------------------------------------------------ thermometer globals ------------------------------------------------
 
-
-
+struct dht_reading thermometer_data;
 
 
 
@@ -61,7 +64,7 @@ esp_err_t tensometer_init(){
     tensometer.gain = 0;
 
     if(hx711_init(&tensometer) != ESP_OK){
-        printf("failed to initialise tensometer");
+        printf("ERR - failed to initialise tensometer");
         return ESP_ERR_INVALID_RESPONSE;
     }
 
@@ -70,16 +73,33 @@ esp_err_t tensometer_init(){
     return ESP_OK;
 }
 
+// ------------------------------------------------ thermometer ------------------------------------------------
+
+void thermometer_read(){
+    read_dht_sensor_data((gpio_num_t)TERMOMETER_PIN, DHT11, &thermometer_data);
+
+
+}
+
 // ------------------------------------------------ main ------------------------------------------------
+
+
+
 
 void app_main() {
 
+   // ------------------------------------------------ initializations ------------------------------------------------
+
     tensometer_init();
+    
 
     while(1){
 
-        printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
+        //printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         //printf("tensometer_raw data: %" PRIi32 "\n", tensometer_read_once());
+        thermometer_read();
+        printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
     }
 }
