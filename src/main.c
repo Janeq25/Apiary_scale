@@ -11,8 +11,8 @@
 // ------------------------------------------------ display config ------------------------------------------------
 
 #define LCD_ADDR 0x27 //display
-#define SDA_PIN  19
-#define SCL_PIN  18
+#define LCD_SDA_PIN  19
+#define LCD_SCL_PIN  18
 #define LCD_COLS 16
 #define LCD_ROWS 2
 
@@ -103,6 +103,7 @@ void LCD_DemoTask()
     //LCD_writeChar('O');
     //LCD_setCursor(1, 1);
     //LCD_writeChar('K');
+}
 // ------------------------------------------------ thermometer ------------------------------------------------
 
 void thermometer_read(){
@@ -123,7 +124,7 @@ void app_main() {
     tensometer_init();
     
 
-    LCD_init(LCD_ADDR, SDA_PIN, SCL_PIN, LCD_COLS, LCD_ROWS);
+    LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
     LCD_home();
     LCD_clearScreen();
 
