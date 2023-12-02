@@ -94,7 +94,16 @@ esp_err_t tensometer_init(){
 }
 
 // ------------------------------------------------ buttons ------------------------------------------------
-char int0_string[16] = {0};
+
+char int_string[16] = {0};
+
+char* int_to_string(int number)
+{
+    sprintf(int_string, "%d", number);
+
+    return int_string;
+}
+
 int number0 = 0;
 
 void LCD_Button0_test()
@@ -112,15 +121,12 @@ void LCD_Button0_test()
             break;
     }
 
-    sprintf(int0_string, "%d", number0);
-   
     LCD_setCursor(0, 0);
     LCD_writeStr("But0_val= ");
     LCD_setCursor(10, 0);
-    LCD_writeStr(int0_string);
+    LCD_writeStr(int_to_string(number0));
 }
 
-char int1_string[16] = {0};
 int number1 = 0;
 
 void LCD_Button1_test()
@@ -138,15 +144,11 @@ void LCD_Button1_test()
             break;
     }
 
-    sprintf(int1_string, "%d", number1);
-   
     LCD_setCursor(0, 1);
     LCD_writeStr("But1_val= ");
     LCD_setCursor(10, 1);
-    LCD_writeStr(int1_string);
+    LCD_writeStr(int_to_string(number1));
 }
-
-    
 
 // ------------------------------------------------ display ------------------------------------------------
 
@@ -176,57 +178,202 @@ void thermometer_read(){
 
 // ------------------------------------------------ RTC --------------------------------------------------------
 
-uint8_t setTimeDateRTCIntern(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t mday, uint8_t month, uint8_t year)
+void setTimeDateRTCIntern(int hour, int minutes, int seconds, int mday, int month, int year)
 {
     struct timeval tv;
     struct tm mytm;
-    char buf[256];
+
     /* Checks data */
-    if(hour > 23)       { return 0; }
-    if(minutes > 59)    { return 0; }
-    if(seconds > 59)    { return 0; }
-    if(mday > 31)       { return 0; }
-    if(month > 12)      { return 0; }
-    if(year > 30)       { return 0; }
+    if(hour > 23)           {hour = 0;}      
+    if(minutes > 59)        {minutes = 0;}
+    if(seconds > 59)        {seconds = 0;}
+    if(mday > 31)           {mday = 0;} 
+    if(month > 12)          {month = 0;}
+    if(year > 30)           {year = 0;}
+
     mytm.tm_hour = hour;
     mytm.tm_min = minutes;
     mytm.tm_sec = seconds;
     mytm.tm_mday = mday;
     mytm.tm_mon = month;
     mytm.tm_year = 100 + year;
-    setenv("TZ", "GMT,M3.5.0/2,M10.5.0/3", 1);
+    setenv("TZ", "GMT", 1);
     tzset();
     time_t t = mktime(&mytm);
-  
     tv.tv_sec = t;
     tv.tv_usec = 0;
-
     settimeofday(&tv, NULL);
-
-    sprintf(buf,"%02d:%02d:%02d",mytm.tm_hour,mytm.tm_min,mytm.tm_sec);
-    printf("%s", buf);
-    sprintf(buf,"%04d-%02d-%02d",mytm.tm_year+1900,mytm.tm_mon+1,mytm.tm_mday);
-    printf("%s", buf);
-    return 1;
 }
 
-void printTime(void)
+struct tm timeinfo;
+
+void updateTime()
 {
     char strftime_buf[64];
     time_t now = 0;
-    struct tm timeinfo;
-   
+    
     time(&now);
     /* Update struct tm with new data */
     localtime_r(&now, &timeinfo);
     strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-    //ESP_LOGI(TAG, "CET DST: %s", strftime_buf);
-    printf("%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
-    printf("%04d-%02d-%02d\n",timeinfo.tm_year+1900,timeinfo.tm_mon+1,timeinfo.tm_mday);
-    //printfTimeDateInfo(&now, &timeinfo);
-    //ESP_LOGI(TAG, "CET DST: %s\n", strftime_buf);
-    //vTaskDelay(1000 / portTICK_PERIOD_MS);
    
+    //printf("%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+    //printf("%04d-%02d-%02d\n",timeinfo.tm_year + 1900,timeinfo.tm_mon + 1,timeinfo.tm_mday);
+}
+
+
+uint8_t prev_second;
+uint8_t prev_minute;
+uint8_t prev_hour;
+
+void LCD_time()
+{   
+    LCD_setCursor(0, 0);
+    LCD_writeStr("Time: ");
+
+    updateTime();
+    
+    if((prev_second + 1) == timeinfo.tm_sec || (prev_minute + 1) == timeinfo.tm_min || (prev_hour + 1) == timeinfo.tm_hour)
+    {
+        if(timeinfo.tm_hour < 10)
+        {
+            LCD_setCursor(6, 0);
+            LCD_writeStr(" ");
+            LCD_setCursor(7, 0);
+            LCD_writeStr(int_to_string(timeinfo.tm_hour));
+            LCD_setCursor(8, 0);
+            LCD_writeStr(":");
+        }
+        else
+        {
+            LCD_setCursor(6, 0);
+            LCD_writeStr(int_to_string(timeinfo.tm_hour));
+            LCD_setCursor(8, 0);
+            LCD_writeStr(":");
+        }
+        
+        if(timeinfo.tm_min < 10)
+        {
+            LCD_setCursor(9, 0);
+            LCD_writeStr("0");
+            LCD_setCursor(10, 0);
+            LCD_writeStr(int_to_string(timeinfo.tm_min));
+            LCD_setCursor(11, 0);
+            LCD_writeStr(":");
+        }
+        else
+        {
+            LCD_setCursor(9, 0);
+            LCD_writeStr(int_to_string(timeinfo.tm_min));
+            LCD_setCursor(11, 0);
+            LCD_writeStr(":");
+        }
+
+        if(timeinfo.tm_sec < 10)
+        {
+            LCD_setCursor(12, 0);
+            LCD_writeStr("0");
+            LCD_setCursor(13, 0);
+            LCD_writeStr(int_to_string(timeinfo.tm_sec));
+        }
+        else
+        {
+            LCD_setCursor(12, 0);
+            LCD_writeStr(int_to_string(timeinfo.tm_sec));
+        }  
+        
+        LCD_setCursor(0, 1);
+        LCD_writeStr("Date: ");
+
+        if(timeinfo.tm_mday < 10)
+        {
+            LCD_setCursor(6, 1);
+            LCD_writeStr("0");
+            LCD_setCursor(7, 1);
+            LCD_writeStr(int_to_string(timeinfo.tm_mday));
+            LCD_setCursor(8, 1);
+            LCD_writeStr("/");
+        }
+        else
+        {
+            LCD_setCursor(6, 1);
+            LCD_writeStr(int_to_string(timeinfo.tm_mday));
+            LCD_setCursor(8, 1);
+            LCD_writeStr(":");
+        }
+
+        if(timeinfo.tm_mon + 1 < 10)
+        {
+            LCD_setCursor(9, 1);
+            LCD_writeStr("0");
+            LCD_setCursor(10, 1);
+            LCD_writeStr(int_to_string(timeinfo.tm_mon + 1));
+            LCD_setCursor(11, 1);
+            LCD_writeStr("/");
+        }
+        else
+        {
+            LCD_setCursor(9, 1);
+            LCD_writeStr(int_to_string(timeinfo.tm_mon + 1));
+            LCD_setCursor(11, 1);
+            LCD_writeStr("/");
+        }
+        if(timeinfo.tm_mon < 10)
+        {
+            LCD_setCursor(9, 1);
+            LCD_writeStr("0");
+            LCD_setCursor(10, 1);
+            LCD_writeStr(int_to_string(timeinfo.tm_mon + 1));
+            LCD_setCursor(11, 1);
+            LCD_writeStr("/");
+        }
+        else
+        {
+            LCD_setCursor(12, 1);
+            LCD_writeStr(int_to_string(timeinfo.tm_year + 1900));
+        }
+
+        prev_second = timeinfo.tm_sec;
+        prev_minute = timeinfo.tm_min;
+        prev_hour = timeinfo.tm_hour;
+    }
+    else
+    {
+        prev_second = timeinfo.tm_sec;
+        prev_minute = timeinfo.tm_min;
+        prev_hour = timeinfo.tm_hour;
+    }   
+}
+
+void set_time()
+{
+    switch (eButton_Read(BUTTON_0))
+    {
+        case RELEASED:
+            break;
+        case PRESSED:
+            updateTime();
+            printf("%02d:%02d:%02d:%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec,timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year);
+            setTimeDateRTCIntern((timeinfo.tm_hour + 1), timeinfo.tm_min, timeinfo.tm_sec , timeinfo.tm_mday, 6, (timeinfo.tm_year - 100));
+            break;
+        default:
+            break;
+    }
+
+    switch (eButton_Read(BUTTON_1))
+    {
+        case RELEASED:
+            break;
+        case PRESSED:
+            updateTime();
+            printf("%02d:%02d:%02d:%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec,timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year);
+            setTimeDateRTCIntern(timeinfo.tm_hour, (timeinfo.tm_min + 1), timeinfo.tm_sec , timeinfo.tm_mday, 6, (timeinfo.tm_year - 100));
+            break;
+        default:
+            break;
+    }
+
+    LCD_time();
 }
 
 // ------------------------------------------------ main ------------------------------------------------
@@ -246,7 +393,8 @@ void app_main() {
 
     Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
 
-    setTimeDateRTCIntern(15, 24, 34, 2, 12, 23);
+    setTimeDateRTCIntern(0, 0, 0, 2, 11, 23);
+    
 
     while(1)
     {
@@ -256,19 +404,10 @@ void app_main() {
         thermometer_read();
         //printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
         //vTaskDelay(pdMS_TO_TICKS(1000));
-
-        LCD_Button0_test();
-        LCD_Button1_test();
-
-        switch (eButton_Read(BUTTON_0))
-        {
-            case RELEASED:
-                break;
-            case PRESSED:
-                printTime();
-                break;
-            default:
-                break;
-        }
+        //LCD_Button0_test();
+        //LCD_Button1_test();
+        LCD_time();
+        //LCD_Button1_test();
+        set_time();
     }
 }
