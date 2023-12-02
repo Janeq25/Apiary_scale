@@ -4,11 +4,9 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#include <time.h>
-#include <lwip/sockets.h>
-
-#include <BUTTONS/buttons.h> //buttons
+#include "BUTTONS/buttons.h" //buttons
 #include "HD44780/HD44780.h" //display
+#include "RTC/rtc.h" //rtc
 #include "HX711/hx711_lib.h" //tensometer
 #include "DHT11/dht_espidf.h" //thermometer
 
@@ -178,49 +176,6 @@ void thermometer_read(){
 
 // ------------------------------------------------ RTC --------------------------------------------------------
 
-void setTimeDateRTCIntern(int hour, int minutes, int seconds, int mday, int month, int year)
-{
-    struct timeval tv;
-    struct tm mytm;
-
-    /* Checks data */
-    if(hour > 23)           {hour = 0;}      
-    if(minutes > 59)        {minutes = 0;}
-    if(seconds > 59)        {seconds = 0;}
-    if(mday > 31)           {mday = 0;} 
-    if(month > 12)          {month = 0;}
-    if(year > 30)           {year = 0;}
-
-    mytm.tm_hour = hour;
-    mytm.tm_min = minutes;
-    mytm.tm_sec = seconds;
-    mytm.tm_mday = mday;
-    mytm.tm_mon = month;
-    mytm.tm_year = 100 + year;
-    setenv("TZ", "GMT", 1);
-    tzset();
-    time_t t = mktime(&mytm);
-    tv.tv_sec = t;
-    tv.tv_usec = 0;
-    settimeofday(&tv, NULL);
-}
-
-struct tm timeinfo;
-
-void updateTime()
-{
-    char strftime_buf[64];
-    time_t now = 0;
-    
-    time(&now);
-    /* Update struct tm with new data */
-    localtime_r(&now, &timeinfo);
-    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-   
-    //printf("%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
-    //printf("%04d-%02d-%02d\n",timeinfo.tm_year + 1900,timeinfo.tm_mon + 1,timeinfo.tm_mday);
-}
-
 
 uint8_t prev_second;
 uint8_t prev_minute;
@@ -231,7 +186,7 @@ void LCD_time()
     LCD_setCursor(0, 0);
     LCD_writeStr("Time: ");
 
-    updateTime();
+    struct tm timeinfo = updateTime();
     
     if((prev_second + 1) == timeinfo.tm_sec || (prev_minute + 1) == timeinfo.tm_min || (prev_hour + 1) == timeinfo.tm_hour)
     {
@@ -352,9 +307,9 @@ void set_time()
         case RELEASED:
             break;
         case PRESSED:
-            updateTime();
-            printf("%02d:%02d:%02d:%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec,timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year);
-            setTimeDateRTCIntern((timeinfo.tm_hour + 1), timeinfo.tm_min, timeinfo.tm_sec , timeinfo.tm_mday, 6, (timeinfo.tm_year - 100));
+            struct tm timeinfo = updateTime();
+            //printf("%02d:%02d:%02d:%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec,timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year);
+            setTimeDateRTCIntern((timeinfo.tm_hour + 1), timeinfo.tm_min, timeinfo.tm_sec , timeinfo.tm_mday, timeinfo.tm_mon, (timeinfo.tm_year - 100));
             break;
         default:
             break;
@@ -365,9 +320,9 @@ void set_time()
         case RELEASED:
             break;
         case PRESSED:
-            updateTime();
-            printf("%02d:%02d:%02d:%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec,timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year);
-            setTimeDateRTCIntern(timeinfo.tm_hour, (timeinfo.tm_min + 1), timeinfo.tm_sec , timeinfo.tm_mday, 6, (timeinfo.tm_year - 100));
+            struct tm timeinfo = updateTime();
+            //printf("%02d:%02d:%02d:%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec,timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year);
+            setTimeDateRTCIntern(timeinfo.tm_hour, (timeinfo.tm_min + 1), timeinfo.tm_sec , timeinfo.tm_mday, timeinfo.tm_mon, (timeinfo.tm_year - 100));
             break;
         default:
             break;
@@ -377,8 +332,6 @@ void set_time()
 }
 
 // ------------------------------------------------ main ------------------------------------------------
-
-
 
 
 void app_main() {

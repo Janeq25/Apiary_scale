@@ -3,13 +3,13 @@
 
 enum Button_Name eButton_Name;
 
-static enum Button_State ebut0_prev_level = RELEASED; 
-static enum Button_State ebut1_prev_level = RELEASED;
+enum Button_State ebut0_prev_level = RELEASED; 
+enum Button_State ebut1_prev_level = RELEASED;
 
 uint8_t but_pin;
 
-static uint8_t but_pin0;
-static uint8_t but_pin1;
+uint8_t but_pin0;
+uint8_t but_pin1;
    
 void Button_Init(uint8_t pin0, uint8_t pin1)
 {

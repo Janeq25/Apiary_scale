@@ -6,6 +6,7 @@
         "hx711_lib.h": "c",
         "hd44780.h": "c",
         "dht_espidf.h": "c",
-        "buttons.h": "c"
+        "buttons.h": "c",
+        "sockets.h": "c"
     }
 }
