@@ -3,8 +3,11 @@
 #include <inttypes.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <BUTTONS/buttons.h>
 
+#include <time.h>
+#include <lwip/sockets.h>
+
+#include <BUTTONS/buttons.h> //buttons
 #include "HD44780/HD44780.h" //display
 #include "HX711/hx711_lib.h" //tensometer
 #include "DHT11/dht_espidf.h" //thermometer
@@ -171,6 +174,61 @@ void thermometer_read(){
 
 }
 
+// ------------------------------------------------ RTC --------------------------------------------------------
+
+uint8_t setTimeDateRTCIntern(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t mday, uint8_t month, uint8_t year)
+{
+    struct timeval tv;
+    struct tm mytm;
+    char buf[256];
+    /* Checks data */
+    if(hour > 23)       { return 0; }
+    if(minutes > 59)    { return 0; }
+    if(seconds > 59)    { return 0; }
+    if(mday > 31)       { return 0; }
+    if(month > 12)      { return 0; }
+    if(year > 30)       { return 0; }
+    mytm.tm_hour = hour;
+    mytm.tm_min = minutes;
+    mytm.tm_sec = seconds;
+    mytm.tm_mday = mday;
+    mytm.tm_mon = month;
+    mytm.tm_year = 100 + year;
+    setenv("TZ", "GMT,M3.5.0/2,M10.5.0/3", 1);
+    tzset();
+    time_t t = mktime(&mytm);
+  
+    tv.tv_sec = t;
+    tv.tv_usec = 0;
+
+    settimeofday(&tv, NULL);
+
+    sprintf(buf,"%02d:%02d:%02d",mytm.tm_hour,mytm.tm_min,mytm.tm_sec);
+    printf("%s", buf);
+    sprintf(buf,"%04d-%02d-%02d",mytm.tm_year+1900,mytm.tm_mon+1,mytm.tm_mday);
+    printf("%s", buf);
+    return 1;
+}
+
+void printTime(void)
+{
+    char strftime_buf[64];
+    time_t now = 0;
+    struct tm timeinfo;
+   
+    time(&now);
+    /* Update struct tm with new data */
+    localtime_r(&now, &timeinfo);
+    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+    //ESP_LOGI(TAG, "CET DST: %s", strftime_buf);
+    printf("%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+    printf("%04d-%02d-%02d\n",timeinfo.tm_year+1900,timeinfo.tm_mon+1,timeinfo.tm_mday);
+    //printfTimeDateInfo(&now, &timeinfo);
+    //ESP_LOGI(TAG, "CET DST: %s\n", strftime_buf);
+    //vTaskDelay(1000 / portTICK_PERIOD_MS);
+   
+}
+
 // ------------------------------------------------ main ------------------------------------------------
 
 
@@ -182,22 +240,35 @@ void app_main() {
 
     tensometer_init();
     
-
     LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
     LCD_home();
     LCD_clearScreen();
 
     Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
 
-    while(1){
+    setTimeDateRTCIntern(15, 24, 34, 2, 12, 23);
+
+    while(1)
+    {
 
         //printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         //printf("tensometer_raw data: %" PRIi32 "\n", tensometer_read_once());
         thermometer_read();
-        printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        //printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
+        //vTaskDelay(pdMS_TO_TICKS(1000));
 
         LCD_Button0_test();
         LCD_Button1_test();
+
+        switch (eButton_Read(BUTTON_0))
+        {
+            case RELEASED:
+                break;
+            case PRESSED:
+                printTime();
+                break;
+            default:
+                break;
+        }
     }
 }
