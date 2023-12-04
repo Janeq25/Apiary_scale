@@ -6,3 +6,4 @@ void LCD_home(void);
 void LCD_clearScreen(void);
 void LCD_writeChar(char c);
 void LCD_writeStr(char* str); 
+void LCD_Off(void);

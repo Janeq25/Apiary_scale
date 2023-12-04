@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <esp_sleep.h>
 
 #include "BUTTONS/buttons.h" //buttons
 #include "HD44780/HD44780.h" //display
@@ -22,6 +23,7 @@
 
 #define BUTTON_0_GPIO 32
 #define BUTTON_1_GPIO 33
+#define BUTTON_2_GPIO 25
 
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
@@ -331,8 +333,11 @@ void set_time()
     LCD_time();
 }
 
-// ------------------------------------------------ main ------------------------------------------------
+// ------------------------------------------------ deepsleep variables------------------------------------------------
 
+RTC_DATA_ATTR u_int8_t time_set = 0;
+
+// ------------------------------------------------ main ------------------------------------------------
 
 void app_main() {
 
@@ -344,23 +349,45 @@ void app_main() {
     LCD_home();
     LCD_clearScreen();
 
-    Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
+    Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO, BUTTON_2_GPIO);
 
-    setTimeDateRTCIntern(0, 0, 0, 2, 11, 23);
+    switch (time_set)
+    {
+    case 0:
+        setTimeDateRTCIntern(0, 0, 0, 4, 11, 23);
+        time_set = 1;
+        break;
+    case 1:
+        time_set = 1;
+        break;
+    default:
+        time_set = 1;
+        break;
+    }
+
     
-
     while(1)
     {
-
         //printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         //printf("tensometer_raw data: %" PRIi32 "\n", tensometer_read_once());
-        thermometer_read();
+       // thermometer_read();
         //printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
         //vTaskDelay(pdMS_TO_TICKS(1000));
-        //LCD_Button0_test();
-        //LCD_Button1_test();
+        
+        switch (eButton_Read(BUTTON_2))
+        {
+        case PRESSED:
+        LCD_Off();
+        esp_sleep_enable_timer_wakeup(30000000);
+        esp_deep_sleep_start();
+            break;
+        case RELEASED:
+        thermometer_read();
         LCD_time();
-        //LCD_Button1_test();
         set_time();
+            break;
+        default:
+            break;
+        }
     }
 }

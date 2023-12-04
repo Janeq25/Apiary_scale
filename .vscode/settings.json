@@ -7,6 +7,8 @@
         "hd44780.h": "c",
         "dht_espidf.h": "c",
         "buttons.h": "c",
-        "sockets.h": "c"
+        "sockets.h": "c",
+        "time.h": "c",
+        "types.h": "c"
     }
 }

@@ -14,6 +14,7 @@
 #define LCD_LINEFOUR            0x54        // start of line 4
 
 #define LCD_BACKLIGHT           0x08
+#define LCD_BACKLIGHT_OFF       0x00
 #define LCD_ENABLE              0x04               
 #define LCD_COMMAND             0x00
 #define LCD_WRITE               0x01
@@ -136,6 +137,28 @@ void LCD_clearScreen(void)
     vTaskDelay(2 / portTICK_PERIOD_MS);                                   // This command takes a while to complete
 }
 
+void LCD_Backlight_Off()                                                  // Use only before deepsleep
+{
+    uint8_t data = LCD_BACKLIGHT_OFF;
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    ESP_ERROR_CHECK(i2c_master_start(cmd));
+    ESP_ERROR_CHECK(i2c_master_write_byte(cmd, (LCD_addr << 1) | I2C_MASTER_WRITE, 1));
+    ESP_ERROR_CHECK(i2c_master_write_byte(cmd, data, 1));
+    ESP_ERROR_CHECK(i2c_master_stop(cmd));
+    ESP_ERROR_CHECK(i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000/portTICK_PERIOD_MS));
+    i2c_cmd_link_delete(cmd);   
+
+    LCD_pulseEnable(data);                                              // Clock data into LCD
+}
+
+void LCD_Off(void)
+{   
+    LCD_writeByte(LCD_DISPLAY_OFF, LCD_COMMAND);
+    vTaskDelay(2 / portTICK_PERIOD_MS);
+    LCD_Backlight_Off();                   
+    vTaskDelay(10 / portTICK_PERIOD_MS);             
+}
+
 static void LCD_writeNibble(uint8_t nibble, uint8_t mode)
 {
     uint8_t data = (nibble & 0xF0) | mode | LCD_BACKLIGHT;
@@ -176,3 +199,4 @@ static void LCD_pulseEnable(uint8_t data)
     i2c_cmd_link_delete(cmd);
     ets_delay_us(500);
 }
+
