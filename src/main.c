@@ -21,9 +21,9 @@
 
 // ------------------------------------------------ buttons config ------------------------------------------------
 
-#define BUTTON_0_GPIO 32
-#define BUTTON_1_GPIO 33
-#define BUTTON_2_GPIO 25
+#define BUTTON_0_GPIO 23
+#define BUTTON_1_GPIO 22
+#define BUTTON_2_GPIO 1
 
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
@@ -35,7 +35,7 @@
 
 // ------------------------------------------------ thermometer config ------------------------------------------------
 
-#define TERMOMETER_PIN 3
+#define TERMOMETER_PIN 25
 
 
 // ------------------------------------------------ tensometer globals ------------------------------------------------
@@ -53,13 +53,6 @@ struct dht_reading thermometer_data;
 
 
 // ------------------------------------------------ tensometer ------------------------------------------------
-int32_t tensometer_read_once(){
-    int32_t tensometer_data;    
-    hx711_read_data(&tensometer, &tensometer_data);
-    hx711_wait(&tensometer, 500);
-
-    return tensometer_data;
-}
 
 int32_t tensometer_read_average(){
     int32_t tensometer_data = 0;
@@ -83,12 +76,15 @@ esp_err_t tensometer_init(){
     tensometer.pd_sck = TENSOMETER_SCK_PIN;
     tensometer.gain = TENSOMETER_GAIN;
 
-    if(hx711_init(&tensometer) != ESP_OK){
-        printf("ERR - failed to initialise tensometer");
-        return ESP_ERR_INVALID_RESPONSE;
-    }
+    hx711_init(&tensometer);
+    // if(hx711_init(&tensometer) != ESP_OK){
+    //     printf("ERR - failed to initialise tensometer\n");
+    //     return ESP_ERR_INVALID_RESPONSE;
+    // }
 
-    scale_offset = tensometer_read_once();
+    scale_offset = tensometer_read_average();
+    scale_offset = scale_offset * SCALE_CONST;
+    printf("scale_offset: %" PRIi32 "\n", scale_offset);
 
     return ESP_OK;
 }
@@ -172,8 +168,6 @@ void LCD_DemoTask()
 
 void thermometer_read(){
     read_dht_sensor_data((gpio_num_t)TERMOMETER_PIN, DHT11, &thermometer_data);
-
-
 }
 
 // ------------------------------------------------ RTC --------------------------------------------------------
@@ -345,9 +339,9 @@ void app_main() {
 
     tensometer_init();
     
-    LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
-    LCD_home();
-    LCD_clearScreen();
+    // LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
+    // LCD_home();
+    // LCD_clearScreen();
 
     Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO, BUTTON_2_GPIO);
 
@@ -368,26 +362,29 @@ void app_main() {
     
     while(1)
     {
-        //printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
-        //printf("tensometer_raw data: %" PRIi32 "\n", tensometer_read_once());
-       // thermometer_read();
-        //printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
-        //vTaskDelay(pdMS_TO_TICKS(1000));
-        
-        switch (eButton_Read(BUTTON_2))
-        {
-        case PRESSED:
-        LCD_Off();
-        esp_sleep_enable_timer_wakeup(30000000);
-        esp_deep_sleep_start();
-            break;
-        case RELEASED:
+        printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
+        vTaskDelay(pdMS_TO_TICKS(1000));
         thermometer_read();
-        LCD_time();
-        set_time();
-            break;
-        default:
-            break;
-        }
+        
+        printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        
+        // switch (eButton_Read(BUTTON_2))
+        // {
+        // case PRESSED:
+        // LCD_Off();
+        // esp_sleep_enable_timer_wakeup(30000000);
+        // esp_deep_sleep_start();
+        //     break;
+        // case RELEASED:
+        // thermometer_read();
+        // LCD_time();
+        // set_time();
+        //     break;
+        // default:
+        //     break;
+        // }
+
+
     }
 }
