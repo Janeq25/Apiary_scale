@@ -9,6 +9,7 @@
         "buttons.h": "c",
         "sockets.h": "c",
         "time.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "uart.h": "c"
     }
 }
