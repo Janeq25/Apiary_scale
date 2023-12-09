@@ -2,7 +2,7 @@
 #include <esp_err.h>
 #include <inttypes.h>
 #include <string.h>
-#include "esp_log.h"
+#include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_sleep.h>
@@ -12,7 +12,7 @@
 #include "RTC/rtc.h" //rtc
 #include "HX711/hx711_lib.h" //tensometer
 #include "DHT11/dht_espidf.h" //thermometer
-#include "driver/uart.h"
+#include "SIM800l/sim800l.h"
 
 // ------------------------------------------------ display config ------------------------------------------------
 
@@ -41,9 +41,9 @@
 #define TERMOMETER_PIN 25
 
 // ------------------------------------------------ GSM config ------------------------------------------------
-#define GSM_TX_PIN 10
-#define GSM_RX_PIN 9
-#define USED_UART UART_NUM_1
+#define GSM_TX_PIN 17
+#define GSM_RX_PIN 16
+#define USED_UART UART_NUM_2
 
 
 // ------------------------------------------------ tensometer globals ------------------------------------------------
@@ -62,20 +62,7 @@ struct dht_reading thermometer_data;
 // ------------------------------------------------ sim800l (uart) ------------------------------------------------
 
 
-void gsm_init(){ //uart2: pin 27 - tx, pin 25 - rx
-    uart_config_t uart_config = {
-        .baud_rate = 9600,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .rx_flow_ctrl_thresh = 122,
-    };
-    // Configure UART parameters
-    ESP_ERROR_CHECK(uart_param_config(USED_UART, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(USED_UART, GSM_TX_PIN, GSM_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
-    ESP_ERROR_CHECK(uart_driver_install(USED_UART, 1024, 1024, 0, NULL, 0));
-}
+
 
 // ------------------------------------------------ tensometer ------------------------------------------------
 
@@ -373,7 +360,7 @@ void app_main() {
     Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO, BUTTON_2_GPIO);
 
     printf("initialising Sim800l\n");
-    gsm_init();
+    gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN);
 
     switch (time_set)
     {
@@ -390,15 +377,11 @@ void app_main() {
     }
 
 
-
-    static const char *TAG = "UART TEST";
-
-    const char* test_str = "TESTETETESt";
-
-
-
-    uint8_t data[128];
-    int length = 0;
+        gsm_send_command(IS_READY);
+        gsm_send_command(CHECK_NET_REG);
+        gsm_send_command(CHECK_NET_CONN);
+        gsm_send_command(GET_SIG_LEVEL);
+        gsm_send_command(IS_PASS_REQUIRED);
     
     while(1)
     {
@@ -408,6 +391,8 @@ void app_main() {
         
         // printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
         vTaskDelay(pdMS_TO_TICKS(1000));
+
+
         
         // switch (eButton_Read(BUTTON_2))
         // {
@@ -425,17 +410,17 @@ void app_main() {
         //     break;
         // }
 
-    printf("sending\n");
-    uart_write_bytes(USED_UART, (const char*)test_str, strlen(test_str));
+    // printf("sending\n");
+    // uart_write_bytes(USED_UART, (const char*)test_str, strlen(test_str));
 
-    vTaskDelay(pdMS_TO_TICKS(100));
-    printf("sent\n");
+    // vTaskDelay(pdMS_TO_TICKS(100));
+    // printf("sent\n");
 
 
-    length = uart_read_bytes(USED_UART, data, 1024, 500 / portTICK_PERIOD_MS);
-    printf("received data length: %i\n", length);
+    // length = uart_read_bytes(USED_UART, data, 1024, 500 / portTICK_PERIOD_MS);
+    // printf("received data length: %i\n", length);
 
-    ESP_LOGI(TAG, "Recv str: %s", (char *) data);
+    // ESP_LOGI(TAG, "Recv str: %s", (char *) data);
 
 
 
