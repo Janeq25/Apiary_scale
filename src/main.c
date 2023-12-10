@@ -44,6 +44,7 @@
 #define GSM_TX_PIN 17
 #define GSM_RX_PIN 16
 #define USED_UART UART_NUM_2
+#define GSM_RESPONSE_BUFFER_SIZE 1024
 
 
 // ------------------------------------------------ tensometer globals ------------------------------------------------
@@ -61,7 +62,7 @@ struct dht_reading thermometer_data;
 
 // ------------------------------------------------ sim800l (uart) ------------------------------------------------
 
-
+uint8_t response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
 
 
 // ------------------------------------------------ tensometer ------------------------------------------------
@@ -111,6 +112,7 @@ char* int_to_string(int number)
 
     return int_string;
 }
+
 
 int number0 = 0;
 
@@ -360,7 +362,7 @@ void app_main() {
     Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO, BUTTON_2_GPIO);
 
     printf("initialising Sim800l\n");
-    gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN);
+    gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN, GSM_RESPONSE_BUFFER_SIZE, response_buffer);
 
     switch (time_set)
     {
@@ -376,12 +378,15 @@ void app_main() {
         break;
     }
 
+        // gsm_send_command(SET_EXTENDED_ERROR_REPORT, response_buffer);
+        // gsm_send_command(IS_READY, response_buffer);
+        // gsm_send_command(CHECK_NET_REG, response_buffer);
+        // gsm_send_command(CHECK_NET_CONN, response_buffer);
+         gsm_send_command(GET_SIG_LEVEL);
+        // gsm_send_command(IS_PASS_REQUIRED, response_buffer);
 
-        gsm_send_command(IS_READY);
-        gsm_send_command(CHECK_NET_REG);
-        gsm_send_command(CHECK_NET_CONN);
-        gsm_send_command(GET_SIG_LEVEL);
-        gsm_send_command(IS_PASS_REQUIRED);
+        gsm_send_command(IS_REGISTERED);
+        //gsm_call("731335526");
     
     while(1)
     {
@@ -392,7 +397,7 @@ void app_main() {
         // printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
         vTaskDelay(pdMS_TO_TICKS(1000));
 
-
+        //printf("recive buffer: %s\n", response_buffer);
         
         // switch (eButton_Read(BUTTON_2))
         // {
