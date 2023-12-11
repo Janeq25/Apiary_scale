@@ -7,17 +7,6 @@ size_t response_buf_size;
 
 
 
-gsm_command_t IS_READY = "AT+CPAS\n";
-gsm_command_t CHECK_NET_REG = "AT+CGREG?\n";
-gsm_command_t CHECK_NET_CONN = "AT+CGATT\n";
-gsm_command_t GET_SIG_LEVEL = "AT+CSQ\n";
-gsm_command_t IS_PASS_REQUIRED = "AT+CPIN?\n";
-gsm_command_t SET_EXTENDED_ERROR_REPORT = "AT+CMEE=2\n";
-gsm_command_t CALL = "ATC\n";
-gsm_command_t LIST_NETWORK_OPERATORS = "AT+COPS=?\n";
-gsm_command_t IS_REGISTERED = "AT+CREG?\n";
-
-
 esp_err_t gsm_init(uart_port_t uart_port, uint tx_pin, uint rx_pin, uint rx_buffer_size, uint8_t* response_buffer){
     used_uart = uart_port;
     response_buf_size = rx_buffer_size;
@@ -82,8 +71,8 @@ esp_err_t gsm_call(const char* phone_number){
 
     char message[128] = {0};
 
-    strcat(message, "ATD+");
-    strcat(message, "731335526");
+    strcat(message, CALL);
+    strcat(message, phone_number);
     strcat(message, ";\n");
 
     gsm_send_command(message);

@@ -386,7 +386,7 @@ void app_main() {
         // gsm_send_command(IS_PASS_REQUIRED, response_buffer);
 
         gsm_send_command(IS_REGISTERED);
-        //gsm_call("731335526");
+        gsm_call("731335526");
     
     while(1)
     {
