@@ -378,15 +378,18 @@ void app_main() {
         break;
     }
 
-        // gsm_send_command(SET_EXTENDED_ERROR_REPORT, response_buffer);
+        gsm_send_command(SET_EXTENDED_ERROR_REPORT, 100);
         // gsm_send_command(IS_READY, response_buffer);
         // gsm_send_command(CHECK_NET_REG, response_buffer);
         // gsm_send_command(CHECK_NET_CONN, response_buffer);
-         gsm_send_command(GET_SIG_LEVEL);
-        // gsm_send_command(IS_PASS_REQUIRED, response_buffer);
+        gsm_send_command(GET_SIG_LEVEL, 100);
+        gsm_send_command(IS_PASS_REQUIRED, 100);
 
-        gsm_send_command(IS_REGISTERED);
-        gsm_call("731335526");
+        //gsm_send_command(LIST_NETWORK_OPERATORS, 10000);
+        gsm_send_command(IS_REGISTERED, 100);
+        //gsm_call("576334045");
+        //gsm_send_sms("576334045", "test");
+
     
     while(1)
     {

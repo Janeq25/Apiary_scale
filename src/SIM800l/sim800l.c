@@ -31,7 +31,7 @@ esp_err_t gsm_init(uart_port_t uart_port, uint tx_pin, uint rx_pin, uint rx_buff
 
 
 
-uint16_t gsm_send_command(char* command){
+uint16_t gsm_send_command(char* command, uint ms_to_wait){
     memset(response_buf, 0, response_buf_size);
     size_t received_length = 0;
 
@@ -47,9 +47,9 @@ uint16_t gsm_send_command(char* command){
         return -1;
     }
 
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(100));
 
-    received_length = uart_read_bytes(used_uart, response_buf, 1024, 100);
+    received_length = uart_read_bytes(used_uart, response_buf, 1024, pdMS_TO_TICKS(ms_to_wait));
     if (received_length == -1){
         ESP_LOGI(TAG, "uart read failed");
         return -1;
@@ -62,7 +62,7 @@ uint16_t gsm_send_command(char* command){
     
 
     //ESP_LOGI(TAG, "request: %s, response: %s", command, response_buf);
-    printf("GSM: request: %s, response: %s", command, response_buf);
+    printf("GSM: request: %s, response: %s\n", command, response_buf);
 
     return received_length;
 }
@@ -75,7 +75,37 @@ esp_err_t gsm_call(const char* phone_number){
     strcat(message, phone_number);
     strcat(message, ";\n");
 
-    gsm_send_command(message);
+    gsm_send_command(message, 1000);
+
+    return ESP_OK;
+}
+
+esp_err_t gsm_send_sms(const char* phone_number, const char* contents){
+
+    char message[20] = {0};
+    char sms_contents[MAX_SMS_LENGTH] = {0};
+    char end_of_sms = 26;
+
+    gsm_send_command(ENTER_TEXT_MODE, 100);
+    
+    strcat(message, SMS_COMMAND);
+    strcat(message, "\"");
+    strcat(message, phone_number);
+    strcat(message, "\"\n");
+
+    gsm_send_command(message, 2000);
+
+    strcat(sms_contents, contents);
+    strcat(sms_contents, &end_of_sms);
+
+
+    gsm_send_command(sms_contents, 2000);
+
+
+
+    // gsm_send_command(&end_of_sms, 100);
+
+    gsm_send_command(EXIT_TEXT_MODE, 100);
 
     return ESP_OK;
 }
