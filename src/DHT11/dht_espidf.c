@@ -37,6 +37,8 @@
 
 #undef DHT_DEBUG
 
+//#define DHT_DEBUG
+
 // RX idle threshold [us]
 // needs to be larger than any duration occurring during bit slots
 // datasheet specs up to 200us for "Bus master has released time"

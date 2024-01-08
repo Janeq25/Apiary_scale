@@ -17,16 +17,16 @@
 // ------------------------------------------------ display config ------------------------------------------------
 
 #define LCD_ADDR 0x27 //display
-#define LCD_SDA_PIN  19
-#define LCD_SCL_PIN  18
+#define LCD_SDA_PIN  19 //check if working on 12
+#define LCD_SCL_PIN  18 //check if working on 13
 #define LCD_COLS 16
 #define LCD_ROWS 2
 
 // ------------------------------------------------ buttons config ------------------------------------------------
 
-#define BUTTON_0_GPIO 23
-#define BUTTON_1_GPIO 22
-#define BUTTON_2_GPIO 1
+#define BUTTON_0_GPIO 23 //check if working on 10
+#define BUTTON_1_GPIO 22 //check if working on 9
+#define BUTTON_2_GPIO 1 //check if working on 13
 
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
@@ -38,7 +38,7 @@
 
 // ------------------------------------------------ thermometer config ------------------------------------------------
 
-#define TERMOMETER_PIN 25
+#define TERMOMETER_PIN 26 //check if working on 26
 
 // ------------------------------------------------ GSM config ------------------------------------------------
 #define GSM_TX_PIN 17
@@ -181,7 +181,9 @@ void LCD_DemoTask()
 // ------------------------------------------------ thermometer ------------------------------------------------
 
 void thermometer_read(){
+    vTaskDelay(pdMS_TO_TICKS(100));
     read_dht_sensor_data((gpio_num_t)TERMOMETER_PIN, DHT11, &thermometer_data);
+    vTaskDelay(pdMS_TO_TICKS(100));
 }
 
 // ------------------------------------------------ RTC --------------------------------------------------------
@@ -378,27 +380,28 @@ void app_main() {
         break;
     }
 
-        gsm_send_command(SET_EXTENDED_ERROR_REPORT, 100);
-        // gsm_send_command(IS_READY, response_buffer);
-        // gsm_send_command(CHECK_NET_REG, response_buffer);
-        // gsm_send_command(CHECK_NET_CONN, response_buffer);
-        gsm_send_command(GET_SIG_LEVEL, 100);
-        gsm_send_command(IS_PASS_REQUIRED, 100);
+        // gsm_send_command(SET_EXTENDED_ERROR_REPORT, 100);
+        // // gsm_send_command(IS_READY, response_buffer);
+        // // gsm_send_command(CHECK_NET_REG, response_buffer);
+        // // gsm_send_command(CHECK_NET_CONN, response_buffer);
+        // gsm_send_command(GET_SIG_LEVEL, 100);
+        // gsm_send_command(IS_PASS_REQUIRED, 100);
 
-        //gsm_send_command(LIST_NETWORK_OPERATORS, 10000);
-        gsm_send_command(IS_REGISTERED, 100);
-        //gsm_call("576334045");
-        //gsm_send_sms("576334045", "test");
+        // //gsm_send_command(LIST_NETWORK_OPERATORS, 10000);
+        // gsm_send_command(IS_REGISTERED, 100);
+        // //gsm_call("576334045");
+        // gsm_send_sms("576334045", "test");
 
     
     while(1)
     {
-        // printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
+        printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         // vTaskDelay(pdMS_TO_TICKS(1000));
-        // thermometer_read();
-        
-        // printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
+
+        thermometer_read();
+        printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
         vTaskDelay(pdMS_TO_TICKS(1000));
+
 
         //printf("recive buffer: %s\n", response_buffer);
         
