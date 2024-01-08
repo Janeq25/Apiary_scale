@@ -35,8 +35,9 @@ uint16_t gsm_send_command(char* command, uint ms_to_wait){
     memset(response_buf, 0, response_buf_size);
     size_t received_length = 0;
 
+    ESP_LOGI(TAG, "waiting %u_ms, sending request: %s", ms_to_wait, command);
 
-    
+
     if (uart_write_bytes(used_uart, command, strlen(command)) == -1){
         ESP_LOGI(TAG, "uart write failed on command: %s", command);
         return -1;
@@ -61,8 +62,7 @@ uint16_t gsm_send_command(char* command, uint ms_to_wait){
      
     
 
-    //ESP_LOGI(TAG, "request: %s, response: %s", command, response_buf);
-    printf("GSM: request: %s, response: %s\n", command, response_buf);
+    ESP_LOGI(TAG, "response: %s", response_buf);
 
     return received_length;
 }
@@ -71,7 +71,7 @@ esp_err_t gsm_call(const char* phone_number){
 
     char message[128] = {0};
 
-    strcat(message, CALL);
+    strcat(message, GSM_CALL);
     strcat(message, phone_number);
     strcat(message, ";\n");
 
@@ -86,9 +86,9 @@ esp_err_t gsm_send_sms(const char* phone_number, const char* contents){
     char sms_contents[MAX_SMS_LENGTH] = {0};
     char end_of_sms = 26;
 
-    gsm_send_command(ENTER_TEXT_MODE, 100);
+    gsm_send_command(GSM_ENTER_TEXT_MODE, 100);
     
-    strcat(message, SMS_COMMAND);
+    strcat(message, GSM_SMS_COMMAND);
     strcat(message, "\"");
     strcat(message, phone_number);
     strcat(message, "\"\n");
@@ -101,11 +101,47 @@ esp_err_t gsm_send_sms(const char* phone_number, const char* contents){
 
     gsm_send_command(sms_contents, 2000);
 
+    gsm_send_command(GSM_EXIT_TEXT_MODE, 100);
+
+    return ESP_OK;
+}
+
+esp_err_t send_send_GET_request(char* url, char* request, char* GET_request_response_buffer, size_t timeout){
+
+    char request_buffer[MAX_HTTP_REQUEST_LENGTH] = GSM_HTTP_CONTENT;
+
+    char url_command_buffer[MAX_HTTP_URL_LENGTH + 20] = GSM_HTTP_URL;
+
+    strcat(url_command_buffer, "\"");
+    strcat(url_command_buffer, url);
+    strcat(url_command_buffer, "\"\n");
+
+    printf("url: %s", url_command_buffer);
+
+    strcat(request_buffer, "\"");
+    strcat(request_buffer, request);
+    strcat(request_buffer, "\"\n");
+
+    printf("request: %s", request_buffer);
 
 
-    // gsm_send_command(&end_of_sms, 100);
 
-    gsm_send_command(EXIT_TEXT_MODE, 100);
+    gsm_send_command(GSM_SET_GPRS, 1000);
+    gsm_send_command(GSM_SET_APN, 5000);
+    gsm_send_command(GSM_START_GPRS, 5000);
+    gsm_send_command(GSM_HTTP_INIT, 1000);
+    gsm_send_command(GSM_HTTP_SESSION_PARAMS, 1000);
+
+    gsm_send_command(url_command_buffer, 10000);
+
+    gsm_send_command(request_buffer, 1000);
+
+    gsm_send_command(GSM_INITIATE_HTTP_REQUEST, timeout);
+    gsm_send_command(GSM_READ_HTTP_RESPONSE, 1000);
+    gsm_send_command(GSM_TERMINATE_HTTP_SETVICE, 1000);
+
+    gsm_send_command(GSM_STOP_GPRS, 1000);
+
 
     return ESP_OK;
 }

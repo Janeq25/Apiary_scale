@@ -380,27 +380,34 @@ void app_main() {
         break;
     }
 
-        // gsm_send_command(SET_EXTENDED_ERROR_REPORT, 100);
-        // // gsm_send_command(IS_READY, response_buffer);
-        // // gsm_send_command(CHECK_NET_REG, response_buffer);
-        // // gsm_send_command(CHECK_NET_CONN, response_buffer);
-        // gsm_send_command(GET_SIG_LEVEL, 100);
-        // gsm_send_command(IS_PASS_REQUIRED, 100);
+        gsm_send_command(GSM_SET_EXTENDED_ERROR_REPORT, 100);
+        gsm_send_command(GSM_IS_READY, 100);
+        gsm_send_command(GSM_CHECK_NET_REG, 100);
+        gsm_send_command(GSM_CHECK_NET_CONN, 100);
+        gsm_send_command(GSM_GET_SIG_LEVEL, 100);
+        gsm_send_command(GSM_IS_PASS_REQUIRED, 100);
 
-        // //gsm_send_command(LIST_NETWORK_OPERATORS, 10000);
-        // gsm_send_command(IS_REGISTERED, 100);
-        // //gsm_call("576334045");
-        // gsm_send_sms("576334045", "test");
+        // //gsm_send_command(GSM_LIST_NETWORK_OPERATORS, 10000);
+        gsm_send_command(GSM_IS_REGISTERED, 100);
 
+
+        //gsm_call("576334045");
+        //gsm_send_sms("576334045", "test");
+        char GET_request_buffer[1024];
+
+        send_send_GET_request("http://worldclockapi.com", "/api/jsonp/cet/now?callback=mycallback", GET_request_buffer, 10000);
     
+       
+
     while(1)
     {
-        printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
-        // vTaskDelay(pdMS_TO_TICKS(1000));
+        // printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
+        // // vTaskDelay(pdMS_TO_TICKS(1000));
 
-        thermometer_read();
-        printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
+        // thermometer_read();
+        // printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
         vTaskDelay(pdMS_TO_TICKS(1000));
+        printf("%s\n", GET_request_buffer);
 
 
         //printf("recive buffer: %s\n", response_buffer);
