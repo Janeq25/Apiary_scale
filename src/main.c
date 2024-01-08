@@ -9,7 +9,7 @@
 #include "HD44780/HD44780.h" //display
 #include "RTC/rtc.h" //rtc
 #include "HX711/hx711_lib.h" //tensometer
-#include "DHT11/dht_espidf.h" //thermometer
+#include "DHT11/dht11.h" //thermometer
 
 // ------------------------------------------------ display config ------------------------------------------------
 
@@ -35,20 +35,13 @@
 
 // ------------------------------------------------ thermometer config ------------------------------------------------
 
-#define TERMOMETER_PIN 25
+#define TERMOMETER_PIN 26
 
 
 // ------------------------------------------------ tensometer globals ------------------------------------------------
 
 hx711_t tensometer;
 int32_t scale_offset = 0;
-
-
-// ------------------------------------------------ thermometer globals ------------------------------------------------
-
-struct dht_reading thermometer_data;
-
-
 
 
 
@@ -163,11 +156,6 @@ void LCD_DemoTask()
     //LCD_writeChar('O');
     //LCD_setCursor(1, 1);
     //LCD_writeChar('K');
-}
-// ------------------------------------------------ thermometer ------------------------------------------------
-
-void thermometer_read(){
-    read_dht_sensor_data((gpio_num_t)TERMOMETER_PIN, DHT11, &thermometer_data);
 }
 
 // ------------------------------------------------ RTC --------------------------------------------------------
@@ -337,6 +325,7 @@ void app_main() {
 
    // ------------------------------------------------ initializations ------------------------------------------------
 
+    DHT11_init(TERMOMETER_PIN);
     tensometer_init();
     
     // LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
@@ -364,9 +353,8 @@ void app_main() {
     {
         printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         vTaskDelay(pdMS_TO_TICKS(1000));
-        thermometer_read();
         
-        printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
+        printf("thermometer - temp: %i, humid: %i, status: %i\n", DHT11_read().temperature, DHT11_read().humidity, DHT11_read().status);
         vTaskDelay(pdMS_TO_TICKS(1000));
         
         // switch (eButton_Read(BUTTON_2))

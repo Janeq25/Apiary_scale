@@ -1,9 +1,8 @@
-/* ****************************************************************************
- *
- * ESP32 platform interface for DHT temperature & humidity sensors
- *
- * Copyright (c) 2017, Arnim Laeuger
- *
+/*
+ * MIT License
+ * 
+ * Copyright (c) 2018 Michele Biondi
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -21,52 +20,27 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * ****************************************************************************/
+*/
 
+#ifndef DHT11_H_
+#define DHT11_H_
 
-#ifndef __DHT_H
-#define __DHT_H
+#include "driver/gpio.h"
 
-// ---------------------------------------------------------------------------
-// INCLUDES
-
-#include <stdint.h>
-
-#include "sdkconfig.h"
-
-#include <esp_err.h>
-#include <driver/gpio.h>
-
-/*** 
- * 
- * Types
- **/
-
-struct dht_reading {
-    double humidity;
-    double temperature;
+enum dht11_status {
+    DHT11_CRC_ERROR = -2,
+    DHT11_TIMEOUT_ERROR,
+    DHT11_OK
 };
 
-typedef enum {
-  DHT_OK = 0,
-  DHT_ERROR_CHECKSUM = -1,
-  DHT_ERROR_TIMEOUT = -2,
-  DHT_INVALID_VALUE = -999
-} dht_result_t;
+struct dht11_reading {
+    int status;
+    int temperature;
+    int humidity;
+};
 
-typedef enum {
-  DHT11,
-  DHT2X
-} dht_type_t;
+void DHT11_init(gpio_num_t);
 
-
-
-// ---------------------------------------------------------------------------
-// FUNCTION PROTOTYPES
-
-//
-// external
-
-dht_result_t read_dht_sensor_data(const gpio_num_t gpio_num, dht_type_t type, struct dht_reading *sensor_data);
+struct dht11_reading DHT11_read();
 
 #endif
