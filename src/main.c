@@ -62,7 +62,7 @@ struct dht_reading thermometer_data;
 
 // ------------------------------------------------ sim800l (uart) ------------------------------------------------
 
-uint8_t response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
+char response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
 
 
 // ------------------------------------------------ tensometer ------------------------------------------------
@@ -380,24 +380,26 @@ void app_main() {
         break;
     }
 
-        gsm_send_command(GSM_SET_EXTENDED_ERROR_REPORT, 100);
-        gsm_send_command(GSM_IS_READY, 100);
-        gsm_send_command(GSM_CHECK_NET_REG, 100);
-        gsm_send_command(GSM_CHECK_NET_CONN, 100);
-        gsm_send_command(GSM_GET_SIG_LEVEL, 100);
-        gsm_send_command(GSM_IS_PASS_REQUIRED, 100);
 
-        // //gsm_send_command(GSM_LIST_NETWORK_OPERATORS, 10000);
-        gsm_send_command(GSM_IS_REGISTERED, 100);
+        // gsm_send_command(GSM_IS_READY, 100);
+        // gsm_send_command(GSM_CHECK_NET_REG, 100);
+        // gsm_send_command(GSM_CHECK_NET_CONN, 100);
+        // gsm_send_command(GSM_GET_SIG_LEVEL, 100);
+        // gsm_send_command(GSM_IS_PASS_REQUIRED, 100);
+
+        // // //gsm_send_command(GSM_LIST_NETWORK_OPERATORS, 10000);
+        // gsm_send_command(GSM_IS_REGISTERED, 100);
 
 
         //gsm_call("576334045");
         //gsm_send_sms("576334045", "test");
-        char GET_request_buffer[1024];
 
-        send_send_GET_request("http://worldclockapi.com", "/api/jsonp/cet/now?callback=mycallback", GET_request_buffer, 10000);
+
+    gsm_connection_status();
+    char GET_request_buffer[1024];
+    gsm_send_http_request("http://worldclockapi.com", "/api/jsonp/cet/now?callback=mycallback", GET_request_buffer, 10000);
     
-       
+
 
     while(1)
     {

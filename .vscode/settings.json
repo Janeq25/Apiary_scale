@@ -10,6 +10,7 @@
         "sockets.h": "c",
         "time.h": "c",
         "types.h": "c",
-        "uart.h": "c"
+        "uart.h": "c",
+        "esp_err.h": "c"
     }
 }
