@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <esp_err.h>
 #include <inttypes.h>
+#include <string.h>
+#include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_sleep.h>
@@ -10,20 +12,21 @@
 #include "RTC/rtc.h" //rtc
 #include "HX711/hx711_lib.h" //tensometer
 #include "DHT11/dht11.h" //thermometer
+#include "SIM800l/sim800l.h"
 
 // ------------------------------------------------ display config ------------------------------------------------
 
 #define LCD_ADDR 0x27 //display
-#define LCD_SDA_PIN  19
-#define LCD_SCL_PIN  18
+#define LCD_SDA_PIN  19 //check if working on 12
+#define LCD_SCL_PIN  18 //check if working on 13
 #define LCD_COLS 16
 #define LCD_ROWS 2
 
 // ------------------------------------------------ buttons config ------------------------------------------------
 
-#define BUTTON_0_GPIO 23
-#define BUTTON_1_GPIO 22
-#define BUTTON_2_GPIO 1
+#define BUTTON_0_GPIO 23 //check if working on 10
+#define BUTTON_1_GPIO 22 //check if working on 9
+#define BUTTON_2_GPIO 1 //check if working on 13
 
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
@@ -37,12 +40,21 @@
 
 #define TERMOMETER_PIN 26
 
+// ------------------------------------------------ GSM config ------------------------------------------------
+#define GSM_TX_PIN 17
+#define GSM_RX_PIN 16
+#define USED_UART UART_NUM_2
+#define GSM_RESPONSE_BUFFER_SIZE 1024
+
 
 // ------------------------------------------------ tensometer globals ------------------------------------------------
 
 hx711_t tensometer;
 int32_t scale_offset = 0;
 
+// ------------------------------------------------ sim800l (uart) ------------------------------------------------
+
+char response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
 
 
 // ------------------------------------------------ tensometer ------------------------------------------------
@@ -92,6 +104,7 @@ char* int_to_string(int number)
 
     return int_string;
 }
+
 
 int number0 = 0;
 
@@ -326,13 +339,18 @@ void app_main() {
    // ------------------------------------------------ initializations ------------------------------------------------
 
     DHT11_init(TERMOMETER_PIN);
+    printf("initialising tensometer\n");
     tensometer_init();
     
     // LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
     // LCD_home();
     // LCD_clearScreen();
 
+    printf("initialising buttons\n");
     Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO, BUTTON_2_GPIO);
+
+    printf("initialising Sim800l\n");
+    gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN, GSM_RESPONSE_BUFFER_SIZE, response_buffer);
 
     switch (time_set)
     {
@@ -348,14 +366,39 @@ void app_main() {
         break;
     }
 
+
+        // gsm_send_command(GSM_IS_READY, 100);
+        // gsm_send_command(GSM_CHECK_NET_REG, 100);
+        // gsm_send_command(GSM_CHECK_NET_CONN, 100);
+        // gsm_send_command(GSM_GET_SIG_LEVEL, 100);
+        // gsm_send_command(GSM_IS_PASS_REQUIRED, 100);
+
+        // // //gsm_send_command(GSM_LIST_NETWORK_OPERATORS, 10000);
+        // gsm_send_command(GSM_IS_REGISTERED, 100);
+
+
+        //gsm_call("576334045");
+        //gsm_send_sms("576334045", "test");
+
+
+    gsm_get_status();
+    char GET_request_buffer[1024];
+    gsm_send_http_request("http://worldclockapi.com/api/jsonp/cet/now?callback=mycallback", "", GET_request_buffer, 10000);
     
+
+
     while(1)
     {
-        printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
+        // printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
+        // // vTaskDelay(pdMS_TO_TICKS(1000));
+
+        // thermometer_read();
+        // printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
         vTaskDelay(pdMS_TO_TICKS(1000));
-        
-        printf("thermometer - temp: %i, humid: %i, status: %i\n", DHT11_read().temperature, DHT11_read().humidity, DHT11_read().status);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        //printf("%s\n", GET_request_buffer);
+
+
+        //printf("recive buffer: %s\n", response_buffer);
         
         // switch (eButton_Read(BUTTON_2))
         // {
@@ -372,6 +415,20 @@ void app_main() {
         // default:
         //     break;
         // }
+
+    // printf("sending\n");
+    // uart_write_bytes(USED_UART, (const char*)test_str, strlen(test_str));
+
+    // vTaskDelay(pdMS_TO_TICKS(100));
+    // printf("sent\n");
+
+
+    // length = uart_read_bytes(USED_UART, data, 1024, 500 / portTICK_PERIOD_MS);
+    // printf("received data length: %i\n", length);
+
+    // ESP_LOGI(TAG, "Recv str: %s", (char *) data);
+
+
 
 
     }
