@@ -19,8 +19,6 @@
 #define LCD_ADDR 0x27 //display
 #define LCD_SDA_PIN  14
 #define LCD_SCL_PIN  27
-// #define LCD_SDA_PIN  27
-// #define LCD_SCL_PIN  14
 #define LCD_COLS 16
 #define LCD_ROWS 2
 
@@ -28,7 +26,6 @@
 
 #define BUTTON_0_GPIO 15
 #define BUTTON_1_GPIO 0
-//#define BUTTON_2_GPIO 1 //check if working on 13
 
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
@@ -43,18 +40,27 @@
 #define TERMOMETER_PIN 26
 
 // ------------------------------------------------ GSM config ------------------------------------------------
+
 #define GSM_TX_PIN 17
 #define GSM_RX_PIN 16
 #define USED_UART UART_NUM_2
 #define GSM_RESPONSE_BUFFER_SIZE 1024
 
+// ------------------------------------------------ main globals ------------------------------------------------
+
+static const char* TAG = "MAIN";
+enum state_e {INIT, RTC_UPDATE, WEIGH, TEMP, SLEEP, WAKEUP};
+enum state_e state = INIT;
 
 // ------------------------------------------------ tensometer globals ------------------------------------------------
 
+
 hx711_t tensometer;
 int32_t scale_offset = 0;
+int32_t tensometer_reading = 0;
 
 // ------------------------------------------------ sim800l (uart) ------------------------------------------------
+
 
 char response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
 
@@ -79,11 +85,13 @@ int32_t tensometer_read_average(){
 
 esp_err_t tensometer_init(){
 
+    esp_err_t status;
+
     tensometer.dout = TENSOMETER_DOUT_PIN;
     tensometer.pd_sck = TENSOMETER_SCK_PIN;
     tensometer.gain = TENSOMETER_GAIN;
 
-    hx711_init(&tensometer);
+    status = hx711_init(&tensometer);
     // if(hx711_init(&tensometer) != ESP_OK){
     //     printf("ERR - failed to initialise tensometer\n");
     //     return ESP_ERR_INVALID_RESPONSE;
@@ -91,213 +99,54 @@ esp_err_t tensometer_init(){
 
     scale_offset = tensometer_read_average();
     scale_offset = scale_offset * SCALE_CONST;
-    printf("scale_offset: %" PRIi32 "\n", scale_offset);
+    ESP_LOGI(TAG, "scale_offset: %" PRIi32 "\n", scale_offset);
 
-    return ESP_OK;
+    return status;
 }
 
-// ------------------------------------------------ buttons ------------------------------------------------
+// ------------------------------------------------ thermometer globals ------------------------------------------------
 
-char int_string[16] = {0};
-
-char* int_to_string(int number)
-{
-    sprintf(int_string, "%d", number);
-
-    return int_string;
-}
-
-
-int number0 = 0;
-
-void LCD_Button0_test()
-{
-    switch (eButton_Read(BUTTON_0))
-    {
-        case RELEASED:
-            number0 = number0;
-            break;
-        case PRESSED:
-            number0++;
-            break;
-        default:
-            number0 = number0;
-            break;
-    }
-
-    LCD_setCursor(0, 0);
-    LCD_writeStr("But0_val= ");
-    LCD_setCursor(10, 0);
-    LCD_writeStr(int_to_string(number0));
-}
-
-int number1 = 0;
-
-void LCD_Button1_test()
-{
-    switch (eButton_Read(BUTTON_1))
-    {
-        case RELEASED:
-            number1 = number1;
-            break;
-        case PRESSED:
-            number1++;
-            break;
-        default:
-            number1 = number1;
-            break;
-    }
-
-    LCD_setCursor(0, 1);
-    LCD_writeStr("But1_val= ");
-    LCD_setCursor(10, 1);
-    LCD_writeStr(int_to_string(number1));
-}
+struct dht11_reading thermometer_reading;
 
 // ------------------------------------------------ display ------------------------------------------------
 
 void LCD_DemoTask()
 {
+    LCD_clearScreen();
     LCD_setCursor(0, 0);
     LCD_writeStr("--- 16x2 LCD ---");
     LCD_setCursor(0, 1);
     LCD_writeStr("LCD Library Demo");
 
-    //LCD_setCursor(0, 0);
-    //LCD_writeChar('O');
-    //LCD_setCursor(1, 0);
-    //LCD_writeChar('K');
-    //LCD_setCursor(0, 1);
-    //LCD_writeChar('O');
-    //LCD_setCursor(1, 1);
-    //LCD_writeChar('K');
+}
+
+void LCD_Write_screen(char* row1, char* row2){
+
+    LCD_clearScreen();
+    LCD_setCursor(0, 0);
+    LCD_writeStr(row1);
+    LCD_setCursor(0, 1);
+    LCD_writeStr(row2);
+
+}
+
+void time_screen(){
+
+    char row1[24];
+    char row2[24];
+
+    struct tm timeinfo = updateTime();
+
+    sprintf(row1, "Time: %02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    sprintf(row2, "Date: %02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
+
+    LCD_Write_screen(row1, row2);
 }
 
 // ------------------------------------------------ RTC --------------------------------------------------------
 
 
-uint8_t prev_second;
-uint8_t prev_minute;
-uint8_t prev_hour;
 
-void LCD_time()
-{   
-    LCD_setCursor(0, 0);
-    LCD_writeStr("Time: ");
-
-    struct tm timeinfo = updateTime();
-    
-    if((prev_second + 1) == timeinfo.tm_sec || (prev_minute + 1) == timeinfo.tm_min || (prev_hour + 1) == timeinfo.tm_hour)
-    {
-        if(timeinfo.tm_hour < 10)
-        {
-            LCD_setCursor(6, 0);
-            LCD_writeStr(" ");
-            LCD_setCursor(7, 0);
-            LCD_writeStr(int_to_string(timeinfo.tm_hour));
-            LCD_setCursor(8, 0);
-            LCD_writeStr(":");
-        }
-        else
-        {
-            LCD_setCursor(6, 0);
-            LCD_writeStr(int_to_string(timeinfo.tm_hour));
-            LCD_setCursor(8, 0);
-            LCD_writeStr(":");
-        }
-        
-        if(timeinfo.tm_min < 10)
-        {
-            LCD_setCursor(9, 0);
-            LCD_writeStr("0");
-            LCD_setCursor(10, 0);
-            LCD_writeStr(int_to_string(timeinfo.tm_min));
-            LCD_setCursor(11, 0);
-            LCD_writeStr(":");
-        }
-        else
-        {
-            LCD_setCursor(9, 0);
-            LCD_writeStr(int_to_string(timeinfo.tm_min));
-            LCD_setCursor(11, 0);
-            LCD_writeStr(":");
-        }
-
-        if(timeinfo.tm_sec < 10)
-        {
-            LCD_setCursor(12, 0);
-            LCD_writeStr("0");
-            LCD_setCursor(13, 0);
-            LCD_writeStr(int_to_string(timeinfo.tm_sec));
-        }
-        else
-        {
-            LCD_setCursor(12, 0);
-            LCD_writeStr(int_to_string(timeinfo.tm_sec));
-        }  
-        
-        LCD_setCursor(0, 1);
-        LCD_writeStr("Date: ");
-
-        if(timeinfo.tm_mday < 10)
-        {
-            LCD_setCursor(6, 1);
-            LCD_writeStr("0");
-            LCD_setCursor(7, 1);
-            LCD_writeStr(int_to_string(timeinfo.tm_mday));
-            LCD_setCursor(8, 1);
-            LCD_writeStr("/");
-        }
-        else
-        {
-            LCD_setCursor(6, 1);
-            LCD_writeStr(int_to_string(timeinfo.tm_mday));
-            LCD_setCursor(8, 1);
-            LCD_writeStr(":");
-        }
-
-        if(timeinfo.tm_mon + 1 < 10)
-        {
-            LCD_setCursor(9, 1);
-            LCD_writeStr("0");
-            LCD_setCursor(10, 1);
-            LCD_writeStr(int_to_string(timeinfo.tm_mon + 1));
-            LCD_setCursor(11, 1);
-            LCD_writeStr("/");
-        }
-        else
-        {
-            LCD_setCursor(9, 1);
-            LCD_writeStr(int_to_string(timeinfo.tm_mon + 1));
-            LCD_setCursor(11, 1);
-            LCD_writeStr("/");
-        }
-        if(timeinfo.tm_mon < 10)
-        {
-            LCD_setCursor(9, 1);
-            LCD_writeStr("0");
-            LCD_setCursor(10, 1);
-            LCD_writeStr(int_to_string(timeinfo.tm_mon + 1));
-            LCD_setCursor(11, 1);
-            LCD_writeStr("/");
-        }
-        else
-        {
-            LCD_setCursor(12, 1);
-            LCD_writeStr(int_to_string(timeinfo.tm_year + 1900));
-        }
-
-        prev_second = timeinfo.tm_sec;
-        prev_minute = timeinfo.tm_min;
-        prev_hour = timeinfo.tm_hour;
-    }
-    else
-    {
-        prev_second = timeinfo.tm_sec;
-        prev_minute = timeinfo.tm_min;
-        prev_hour = timeinfo.tm_hour;
-    }   
-}
 
 void set_time()
 {
@@ -327,7 +176,7 @@ void set_time()
             break;
     }
 
-    LCD_time();
+    time_screen();
 }
 
 // ------------------------------------------------ deepsleep variables------------------------------------------------
@@ -340,19 +189,95 @@ void app_main() {
 
    // ------------------------------------------------ initializations ------------------------------------------------
 
-    DHT11_init(TERMOMETER_PIN);
-    printf("initialising tensometer\n");
-    tensometer_init();
-    
+    ESP_LOGI(TAG, "Initialising screen");
     LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
     LCD_home();
     LCD_clearScreen();
+    LCD_setCursor(0,0);
+    LCD_writeStr("Starting");
+    vTaskDelay(pdMS_TO_TICKS(500));
+    ESP_LOGI(TAG, "Initialising screen finished");
 
-    printf("initialising buttons\n");
+
+    ESP_LOGI(TAG, "Initialising Thermometer");
+    LCD_Write_screen("Inititlising", "Thermometer");
+    DHT11_init(TERMOMETER_PIN);
+    thermometer_reading = DHT11_read();
+    if (thermometer_reading.status == DHT11_OK){
+        char temp[LCD_COLS];
+        char humid[LCD_COLS];
+        sprintf(temp, "Temp: %d C", thermometer_reading.temperature);
+        sprintf(humid, "Humid: %d ", thermometer_reading.humidity);
+        LCD_Write_screen(temp, humid);
+    }
+    else{
+        ESP_LOGI(TAG, "DHT11 status: %d", thermometer_reading.status);
+        LCD_Write_screen("Thermometer init", "Failed");
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    ESP_LOGI(TAG, "Initialising Tensometer");
+    LCD_Write_screen("Inititlising", "Tensometer");
+    if (tensometer_init() == ESP_OK){
+        tensometer_reading = tensometer_read_average();
+        char weight[LCD_COLS];
+        sprintf(weight, "%d g", (int)tensometer_reading);
+        LCD_Write_screen("Weight: ", weight);
+    }
+    else{
+        ESP_LOGI(TAG, "Tensometer init failed");
+        LCD_Write_screen("Tensometer init", "Failed");
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+
+
+    
+
+
+    ESP_LOGI(TAG, "initialising buttons");
+    LCD_Write_screen("Inititlising", "Buttons");
     Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
 
-    printf("initialising Sim800l\n");
-    gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN, GSM_RESPONSE_BUFFER_SIZE, response_buffer);
+    ESP_LOGI(TAG, "initialising Sim800l");
+    LCD_Write_screen("Inititlising", "GSM");
+    switch (gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN, GSM_RESPONSE_BUFFER_SIZE, response_buffer)){
+        case GSM_OK:
+        ESP_LOGI(TAG, "GSM ok");
+        break;
+
+        case GSM_ERR_MODULE_NOT_CONNECTED:
+        LCD_Write_screen("GSM module", "Not Connected");
+        break;
+
+        case GSM_ERR_SIM_NOT_INSERTED:
+        LCD_Write_screen("GSM module", "Insert SIM");
+        break;
+
+        case GSM_ERR_PIN_REQUIRED:
+        LCD_Write_screen("GSM module", "PIN Required");
+        break;
+
+        case GSM_ERR_NO_SIGNAL:
+        LCD_Write_screen("GSM module", "No signal");
+        break;
+
+        case GSM_ERR_NOT_ATTACHED_GPRS_SERV:
+        LCD_Write_screen("GSM module", "GPRS error");
+        break;
+
+        case GSM_ERR_NOT_REGISTERED_IN_NETWORK:
+        LCD_Write_screen("GSM module", "not registered");
+        break;
+
+        default:
+        LCD_Write_screen("GSM module", "ERROR");
+        break;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
 
     switch (time_set)
     {
@@ -369,9 +294,9 @@ void app_main() {
     }
 
 
-    gsm_get_status();
-    char GET_request_buffer[1024];
-    gsm_send_http_request("http://worldclockapi.com/api/jsonp/cet/now?callback=mycallback", "", GET_request_buffer, 10000);
+    // gsm_get_status();
+    // char GET_request_buffer[1024];
+    // gsm_send_http_request("http://worldclockapi.com/api/jsonp/cet/now?callback=mycallback", "", GET_request_buffer, 10000);
     
 
 
@@ -379,13 +304,16 @@ void app_main() {
     {
         printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         printf("thermometer - temp: %i, humid: %i \n", DHT11_read().temperature, DHT11_read().humidity);
-        LCD_time();
+        
+        time_screen();
         vTaskDelay(pdMS_TO_TICKS(1000));
 
-        //printf("%s\n", GET_request_buffer);
 
 
-        //printf("recive buffer: %s\n", response_buffer);
+
+
+
+
         
         // switch (eButton_Read(BUTTON_2))
         // {
@@ -402,21 +330,6 @@ void app_main() {
         // default:
         //     break;
         // }
-
-    // printf("sending\n");
-    // uart_write_bytes(USED_UART, (const char*)test_str, strlen(test_str));
-
-    // vTaskDelay(pdMS_TO_TICKS(100));
-    // printf("sent\n");
-
-
-    // length = uart_read_bytes(USED_UART, data, 1024, 500 / portTICK_PERIOD_MS);
-    // printf("received data length: %i\n", length);
-
-    // ESP_LOGI(TAG, "Recv str: %s", (char *) data);
-
-
-
 
     }
 }

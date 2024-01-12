@@ -122,7 +122,6 @@ void LCD_writeStr(char* str)
 {
     while (*str) {
         LCD_writeChar(*str++);
-        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
