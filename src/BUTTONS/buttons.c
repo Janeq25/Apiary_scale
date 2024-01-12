@@ -13,18 +13,18 @@ uint8_t but_pin0;
 uint8_t but_pin1;
 uint8_t but_pin2;
    
-void Button_Init(uint8_t pin0, uint8_t pin1, uint8_t pin2)
+void Button_Init(uint8_t pin0, uint8_t pin1)
 {
     but_pin0 = pin0;
     but_pin1 = pin1;
-    but_pin2 = pin2;
+    //but_pin2 = pin2;
 
-    gpio_set_direction(but_pin0, GPIO_MODE_INPUT);
-    gpio_set_direction(but_pin1, GPIO_MODE_INPUT);
-    gpio_set_direction(but_pin2, GPIO_MODE_INPUT);
-    gpio_pullup_en(but_pin0);
-    gpio_pullup_en(but_pin1);
-    gpio_pullup_en(but_pin2);
+    ESP_ERROR_CHECK(gpio_set_direction(but_pin0, GPIO_MODE_INPUT));
+    ESP_ERROR_CHECK(gpio_set_direction(but_pin1, GPIO_MODE_INPUT));
+    //gpio_set_direction(but_pin2, GPIO_MODE_INPUT);
+    ESP_ERROR_CHECK(gpio_pullup_en(but_pin0));
+    ESP_ERROR_CHECK(gpio_pullup_en(but_pin1));
+    //gpio_pullup_en(but_pin2);
 }
 
 enum Button_State eButton_Read(enum Button_Name eButton_Name)
@@ -40,11 +40,11 @@ enum Button_State eButton_Read(enum Button_Name eButton_Name)
     case BUTTON_1:
         but_pin = but_pin1;
         break;
-    case BUTTON_2:
-        but_pin = but_pin2;
-        break;
-    default:
-        break;
+    // case BUTTON_2:
+    //     but_pin = but_pin2;
+    //     break;
+    // default:
+    //     break;
     }
 
     switch(gpio_get_level(but_pin))
@@ -70,10 +70,10 @@ enum Button_State eButton_Read(enum Button_Name eButton_Name)
         ebut_prev_level = ebut1_prev_level;
         ebut1_prev_level = ebut_level;
         break;
-    case BUTTON_2:
-        ebut_prev_level = ebut2_prev_level;
-        ebut2_prev_level = ebut_level;
-        break;
+    // case BUTTON_2:
+    //     ebut_prev_level = ebut2_prev_level;
+    //     ebut2_prev_level = ebut_level;
+    //     break;
     default:
         break;
     }

@@ -42,18 +42,18 @@
 // P6 -> D6
 // P7 -> D7
 
-static char tag[] = "LCD Driver";
-static uint8_t LCD_addr;
-static uint8_t SDA_pin;
-static uint8_t SCL_pin;
-static uint8_t LCD_cols;
-static uint8_t LCD_rows;
+ char tag[] = "LCD Driver";
+ uint8_t LCD_addr;
+ uint8_t SDA_pin;
+ uint8_t SCL_pin;
+ uint8_t LCD_cols;
+ uint8_t LCD_rows;
 
-static void LCD_writeNibble(uint8_t nibble, uint8_t mode);
-static void LCD_writeByte(uint8_t data, uint8_t mode);
-static void LCD_pulseEnable(uint8_t nibble);
+ void LCD_writeNibble(uint8_t nibble, uint8_t mode);
+ void LCD_writeByte(uint8_t data, uint8_t mode);
+ void LCD_pulseEnable(uint8_t nibble);
 
-static esp_err_t I2C_init(void)
+ esp_err_t I2C_init(void)
 {
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
@@ -61,7 +61,7 @@ static esp_err_t I2C_init(void)
         .scl_io_num = SCL_pin,
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 100000
+        .master.clk_speed = 10000
     };
 	i2c_param_config(I2C_NUM_0, &conf);
 	i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0);
@@ -122,6 +122,7 @@ void LCD_writeStr(char* str)
 {
     while (*str) {
         LCD_writeChar(*str++);
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
@@ -159,7 +160,7 @@ void LCD_Off(void)
     vTaskDelay(10 / portTICK_PERIOD_MS);             
 }
 
-static void LCD_writeNibble(uint8_t nibble, uint8_t mode)
+ void LCD_writeNibble(uint8_t nibble, uint8_t mode)
 {
     uint8_t data = (nibble & 0xF0) | mode | LCD_BACKLIGHT;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -173,13 +174,13 @@ static void LCD_writeNibble(uint8_t nibble, uint8_t mode)
     LCD_pulseEnable(data);                                              // Clock data into LCD
 }
 
-static void LCD_writeByte(uint8_t data, uint8_t mode)
+ void LCD_writeByte(uint8_t data, uint8_t mode)
 {
     LCD_writeNibble(data & 0xF0, mode);
     LCD_writeNibble((data << 4) & 0xF0, mode);
 }
 
-static void LCD_pulseEnable(uint8_t data)
+ void LCD_pulseEnable(uint8_t data)
 {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     ESP_ERROR_CHECK(i2c_master_start(cmd));

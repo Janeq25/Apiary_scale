@@ -17,16 +17,18 @@
 // ------------------------------------------------ display config ------------------------------------------------
 
 #define LCD_ADDR 0x27 //display
-#define LCD_SDA_PIN  19 //check if working on 12
-#define LCD_SCL_PIN  18 //check if working on 13
+#define LCD_SDA_PIN  14
+#define LCD_SCL_PIN  27
+// #define LCD_SDA_PIN  27
+// #define LCD_SCL_PIN  14
 #define LCD_COLS 16
 #define LCD_ROWS 2
 
 // ------------------------------------------------ buttons config ------------------------------------------------
 
-#define BUTTON_0_GPIO 23 //check if working on 10
-#define BUTTON_1_GPIO 22 //check if working on 9
-#define BUTTON_2_GPIO 1 //check if working on 13
+#define BUTTON_0_GPIO 15
+#define BUTTON_1_GPIO 0
+//#define BUTTON_2_GPIO 1 //check if working on 13
 
 // ------------------------------------------------ tensometer config ------------------------------------------------
 
@@ -342,12 +344,12 @@ void app_main() {
     printf("initialising tensometer\n");
     tensometer_init();
     
-    // LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
-    // LCD_home();
-    // LCD_clearScreen();
+    LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
+    LCD_home();
+    LCD_clearScreen();
 
     printf("initialising buttons\n");
-    Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO, BUTTON_2_GPIO);
+    Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
 
     printf("initialising Sim800l\n");
     gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN, GSM_RESPONSE_BUFFER_SIZE, response_buffer);
@@ -367,20 +369,6 @@ void app_main() {
     }
 
 
-        // gsm_send_command(GSM_IS_READY, 100);
-        // gsm_send_command(GSM_CHECK_NET_REG, 100);
-        // gsm_send_command(GSM_CHECK_NET_CONN, 100);
-        // gsm_send_command(GSM_GET_SIG_LEVEL, 100);
-        // gsm_send_command(GSM_IS_PASS_REQUIRED, 100);
-
-        // // //gsm_send_command(GSM_LIST_NETWORK_OPERATORS, 10000);
-        // gsm_send_command(GSM_IS_REGISTERED, 100);
-
-
-        //gsm_call("576334045");
-        //gsm_send_sms("576334045", "test");
-
-
     gsm_get_status();
     char GET_request_buffer[1024];
     gsm_send_http_request("http://worldclockapi.com/api/jsonp/cet/now?callback=mycallback", "", GET_request_buffer, 10000);
@@ -389,12 +377,11 @@ void app_main() {
 
     while(1)
     {
-        // printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
-        // // vTaskDelay(pdMS_TO_TICKS(1000));
-
-        // thermometer_read();
-        // printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
+        printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
+        printf("thermometer - temp: %i, humid: %i \n", DHT11_read().temperature, DHT11_read().humidity);
+        LCD_time();
         vTaskDelay(pdMS_TO_TICKS(1000));
+
         //printf("%s\n", GET_request_buffer);
 
 
