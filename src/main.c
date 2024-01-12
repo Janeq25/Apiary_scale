@@ -395,9 +395,9 @@ void app_main() {
         //gsm_send_sms("576334045", "test");
 
 
-    gsm_connection_status();
+    gsm_get_status();
     char GET_request_buffer[1024];
-    gsm_send_http_request("http://worldclockapi.com", "/api/jsonp/cet/now?callback=mycallback", GET_request_buffer, 10000);
+    gsm_send_http_request("http://worldclockapi.com/api/jsonp/cet/now?callback=mycallback", "", GET_request_buffer, 10000);
     
 
 
@@ -409,7 +409,7 @@ void app_main() {
         // thermometer_read();
         // printf("thermometer - temp: %lf, humid: %lf \n",thermometer_data.temperature, thermometer_data.humidity);
         vTaskDelay(pdMS_TO_TICKS(1000));
-        printf("%s\n", GET_request_buffer);
+        //printf("%s\n", GET_request_buffer);
 
 
         //printf("recive buffer: %s\n", response_buffer);
