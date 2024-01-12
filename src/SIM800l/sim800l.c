@@ -42,6 +42,8 @@ gsm_err_t gsm_init(uart_port_t uart_port, uint tx_pin, uint rx_pin, uint rx_buff
 
     vTaskDelay(pdMS_TO_TICKS(10000));
 
+    if (gsm_get_status() != GSM_OK) return gsm_status;
+
     #ifdef GSM_DEBUG
         if (gsm_send_command(GSM_COMMAND_SET_EXTENDED_ERROR_REPORT, 100) != GSM_OK) return gsm_status;
         if (strstr(response_buf, "OK") == 0){
@@ -94,6 +96,13 @@ gsm_err_t gsm_send_command(char* command, uint ms_to_wait){
 }
 
 gsm_err_t gsm_get_status(){
+
+    if (gsm_send_command(GSM_COMMAND_IS_READY, 100) != GSM_OK) return gsm_status;
+    if (strstr(response_buf, "OK") == 0){
+        ESP_LOGI(TAG, "gsm module not responding");
+        gsm_status = GSM_ERR_MODULE_NOT_CONNECTED;
+        return GSM_ERR_MODULE_NOT_CONNECTED;
+    }
     
     if (gsm_send_command(GSM_COMMAND_SIM_GSM_STATUS, 100) != GSM_OK) return gsm_status;
     if (strstr(response_buf, "CSMINS: 0,1") == 0){
