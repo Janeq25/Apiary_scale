@@ -62,7 +62,6 @@
 #define GSM_ERR_NOT_REGISTERED_IN_NETWORK   8
 
 typedef int gsm_err_t;
-extern gsm_err_t gsm_status;
 
 gsm_err_t gsm_init(uart_port_t uart_port, uint tx_pin, uint rx_pin, uint rx_buffer_size, char* response_buffer);
 gsm_err_t gsm_get_status();
