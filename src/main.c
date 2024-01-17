@@ -49,7 +49,7 @@
 // ------------------------------------------------ main globals ------------------------------------------------
 
 static const char* TAG = "MAIN";
-enum state_e {INIT, RTC_UPDATE, WEIGH, TEMP, SLEEP, WAKEUP};
+enum state_e {INIT, TIME_SCREEN, WEIGHT_SCREEN, TEMP_SCREEN, MEASUREMENT, SLEEP, WAKEUP, WAIT_FOR_RESET};
 enum state_e state = INIT;
 
 // ------------------------------------------------ tensometer globals ------------------------------------------------
@@ -187,111 +187,6 @@ RTC_DATA_ATTR u_int8_t time_set = 0;
 
 void app_main() {
 
-   // ------------------------------------------------ initializations ------------------------------------------------
-
-    ESP_LOGI(TAG, "Initialising screen");
-    LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
-    LCD_home();
-    LCD_clearScreen();
-    LCD_setCursor(0,0);
-    LCD_writeStr("Starting");
-    vTaskDelay(pdMS_TO_TICKS(500));
-    ESP_LOGI(TAG, "Initialising screen finished");
-
-
-    ESP_LOGI(TAG, "Initialising Thermometer");
-    LCD_Write_screen("Inititlising", "Thermometer");
-    DHT11_init(TERMOMETER_PIN);
-    thermometer_reading = DHT11_read();
-    if (thermometer_reading.status == DHT11_OK){
-        char temp[LCD_COLS];
-        char humid[LCD_COLS];
-        sprintf(temp, "Temp: %d C", thermometer_reading.temperature);
-        sprintf(humid, "Humid: %d ", thermometer_reading.humidity);
-        LCD_Write_screen(temp, humid);
-    }
-    else{
-        ESP_LOGI(TAG, "DHT11 status: %d", thermometer_reading.status);
-        LCD_Write_screen("Thermometer init", "Failed");
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(500));
-
-    ESP_LOGI(TAG, "Initialising Tensometer");
-    LCD_Write_screen("Inititlising", "Tensometer");
-    if (tensometer_init() == ESP_OK){
-        tensometer_reading = tensometer_read_average();
-        char weight[LCD_COLS];
-        sprintf(weight, "%d g", (int)tensometer_reading);
-        LCD_Write_screen("Weight: ", weight);
-    }
-    else{
-        ESP_LOGI(TAG, "Tensometer init failed");
-        LCD_Write_screen("Tensometer init", "Failed");
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(500));
-
-
-
-    
-
-
-    ESP_LOGI(TAG, "initialising buttons");
-    LCD_Write_screen("Inititlising", "Buttons");
-    Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
-
-    ESP_LOGI(TAG, "initialising Sim800l");
-    LCD_Write_screen("Inititlising", "GSM");
-    switch (gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN, GSM_RESPONSE_BUFFER_SIZE, response_buffer)){
-        case GSM_OK:
-        ESP_LOGI(TAG, "GSM ok");
-        break;
-
-        case GSM_ERR_MODULE_NOT_CONNECTED:
-        LCD_Write_screen("GSM module", "Not Connected");
-        break;
-
-        case GSM_ERR_SIM_NOT_INSERTED:
-        LCD_Write_screen("GSM module", "Insert SIM");
-        break;
-
-        case GSM_ERR_PIN_REQUIRED:
-        LCD_Write_screen("GSM module", "PIN Required");
-        break;
-
-        case GSM_ERR_NO_SIGNAL:
-        LCD_Write_screen("GSM module", "No signal");
-        break;
-
-        case GSM_ERR_NOT_ATTACHED_GPRS_SERV:
-        LCD_Write_screen("GSM module", "GPRS error");
-        break;
-
-        case GSM_ERR_NOT_REGISTERED_IN_NETWORK:
-        LCD_Write_screen("GSM module", "not registered");
-        break;
-
-        default:
-        LCD_Write_screen("GSM module", "ERROR");
-        break;
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
-    switch (time_set)
-    {
-    case 0:
-        setTimeDateRTCIntern(0, 0, 0, 4, 11, 23);
-        time_set = 1;
-        break;
-    case 1:
-        time_set = 1;
-        break;
-    default:
-        time_set = 1;
-        break;
-    }
 
 
     // gsm_get_status();
@@ -302,11 +197,159 @@ void app_main() {
 
     while(1)
     {
-        printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
-        printf("thermometer - temp: %i, humid: %i \n", DHT11_read().temperature, DHT11_read().humidity);
+
+
+
+        switch (state){
+            case INIT:
+
+                ESP_LOGI(TAG, "Initialising screen");
+                LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
+                LCD_home();
+                LCD_clearScreen();
+                LCD_setCursor(0,0);
+                LCD_writeStr("Starting");
+                vTaskDelay(pdMS_TO_TICKS(500));
+                ESP_LOGI(TAG, "Initialising screen finished");
+
+
+                ESP_LOGI(TAG, "Initialising Thermometer");
+                LCD_Write_screen("Inititlising", "Thermometer");
+                DHT11_init(TERMOMETER_PIN);
+                thermometer_reading = DHT11_read();
+                if (thermometer_reading.status == DHT11_OK){
+                    char temp[LCD_COLS];
+                    char humid[LCD_COLS];
+                    sprintf(temp, "Temp: %d C", thermometer_reading.temperature);
+                    sprintf(humid, "Humid: %d ", thermometer_reading.humidity);
+                    LCD_Write_screen(temp, humid);
+                }
+                else{
+                    ESP_LOGI(TAG, "DHT11 status: %d", thermometer_reading.status);
+                    LCD_Write_screen("Thermometer init", "Failed");
+                    state = WAIT_FOR_RESET;
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(500));
+
+                ESP_LOGI(TAG, "Initialising Tensometer");
+                LCD_Write_screen("Inititlising", "Tensometer");
+                if (tensometer_init() == ESP_OK){
+                    tensometer_reading = tensometer_read_average();
+                    char weight[LCD_COLS];
+                    sprintf(weight, "%d g", (int)tensometer_reading);
+                    LCD_Write_screen("Weight: ", weight);
+                }
+                else{
+                    ESP_LOGI(TAG, "Tensometer init failed");
+                    LCD_Write_screen("Tensometer init", "Failed");
+                    state = WAIT_FOR_RESET;
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(500));
+
+                ESP_LOGI(TAG, "initialising buttons");
+                LCD_Write_screen("Inititlising", "Buttons");
+                Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
+
+                ESP_LOGI(TAG, "initialising Sim800l");
+                LCD_Write_screen("Inititlising", "GSM");
+                switch (gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN, GSM_RESPONSE_BUFFER_SIZE, response_buffer)){
+                    case GSM_OK:
+                    ESP_LOGI(TAG, "GSM ok");
+                    break;
+
+                    case GSM_ERR_MODULE_NOT_CONNECTED:
+                    LCD_Write_screen("GSM module", "Not Connected");
+                    state = WAIT_FOR_RESET;
+                    break;
+
+                    case GSM_ERR_SIM_NOT_INSERTED:
+                    LCD_Write_screen("GSM module", "Insert SIM");
+                    state = WAIT_FOR_RESET;
+                    break;
+
+                    case GSM_ERR_PIN_REQUIRED:
+                    LCD_Write_screen("GSM module", "PIN Required");
+                    state = WAIT_FOR_RESET;
+                    break;
+
+                    case GSM_ERR_NO_SIGNAL:
+                    LCD_Write_screen("GSM module", "No signal");
+                    state = WAIT_FOR_RESET;
+                    break;
+
+                    case GSM_ERR_NOT_ATTACHED_GPRS_SERV:
+                    LCD_Write_screen("GSM module", "GPRS error");
+                    state = WAIT_FOR_RESET;
+                    break;
+
+                    case GSM_ERR_NOT_REGISTERED_IN_NETWORK:
+                    LCD_Write_screen("GSM module", "not registered");
+                    state = WAIT_FOR_RESET;
+                    break;
+
+                    default:
+                    LCD_Write_screen("GSM module", "ERROR");
+                    state = WAIT_FOR_RESET;
+                    break;
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(1000));
+
+                switch (time_set)
+                {
+                case 0:
+                    setTimeDateRTCIntern(0, 0, 0, 4, 11, 23);
+                    time_set = 1;
+                    break;
+                case 1:
+                    time_set = 1;
+                    break;
+                default:
+                    time_set = 1;
+                    break;
+                }
+            break;
+
+            case TIME_SCREEN:
+
+            break;      
+
+            case WEIGHT_SCREEN:
+
+            break;
+
+            case TEMP_SCREEN:
+
+            break;        
+
+            case MEASUREMENT:
+
+            break;
+
+            case SLEEP:
+
+            break;
+
+            case WAKEUP:
+
+            break;
+
+            case WAIT_FOR_RESET:
+
+            state = WAIT_FOR_RESET;
+            vTaskDelay(pdMS_TO_TICKS(10));
+            break;
+
+
+        }
+
+        // printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
+        // printf("thermometer - temp: %i, humid: %i \n", DHT11_read().temperature, DHT11_read().humidity);
         
-        time_screen();
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        // time_screen();
+        // vTaskDelay(pdMS_TO_TICKS(1000));
 
 
 
