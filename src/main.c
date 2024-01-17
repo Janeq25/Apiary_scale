@@ -324,7 +324,7 @@ void app_main() {
                     state = TIME_SCREEN;
                 }
 
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(1000));
 
             break;      
 
@@ -344,7 +344,7 @@ void app_main() {
                     state = WEIGHT_SCREEN;
                 }
 
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(1000));
 
             break;
 
@@ -371,7 +371,7 @@ void app_main() {
                     state = TEMP_SCREEN;
                 }
 
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(1000));
 
             break;        
 
