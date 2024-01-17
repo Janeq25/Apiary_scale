@@ -132,15 +132,7 @@ void LCD_Write_screen(char* row1, char* row2){
 
 void time_screen(){
 
-    char row1[24];
-    char row2[24];
 
-    struct tm timeinfo = updateTime();
-
-    sprintf(row1, "Time: %02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-    sprintf(row2, "Date: %02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
-
-    LCD_Write_screen(row1, row2);
 }
 
 // ------------------------------------------------ RTC --------------------------------------------------------
@@ -310,17 +302,76 @@ void app_main() {
                     time_set = 1;
                     break;
                 }
+
+                state = TIME_SCREEN;
             break;
 
             case TIME_SCREEN:
+                char row1[24];
+                char row2[24];
+
+                struct tm timeinfo = updateTime();
+
+                sprintf(row1, "Time: %02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+                sprintf(row2, "Date: %02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
+
+                LCD_Write_screen(row1, row2);
+
+                if (eButton_Read(BUTTON_0) == PRESSED){
+                    state = WEIGHT_SCREEN;
+                }
+                else{
+                    state = TIME_SCREEN;
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(500));
 
             break;      
 
             case WEIGHT_SCREEN:
 
+                tensometer_reading = tensometer_read_average();
+                char weight[LCD_COLS];
+                sprintf(weight, "%d g", (int)tensometer_reading);
+                LCD_Write_screen("Weight: ", weight);
+
+
+
+                if (eButton_Read(BUTTON_0) == PRESSED){
+                    state = TEMP_SCREEN;
+                }
+                else{
+                    state = WEIGHT_SCREEN;
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(500));
+
             break;
 
             case TEMP_SCREEN:
+
+                thermometer_reading = DHT11_read();
+                if (thermometer_reading.status == DHT11_OK){
+                    char temp[LCD_COLS];
+                    char humid[LCD_COLS];
+                    sprintf(temp, "Temp: %d C", thermometer_reading.temperature);
+                    sprintf(humid, "Humid: %d ", thermometer_reading.humidity);
+                    LCD_Write_screen(temp, humid);
+                }
+                else{
+                    ESP_LOGI(TAG, "DHT11 status: %d", thermometer_reading.status);
+                    LCD_Write_screen("Thermometer init", "Failed");
+                    state = WAIT_FOR_RESET;
+                }
+
+                if (eButton_Read(BUTTON_0) == PRESSED){
+                    state = TIME_SCREEN;
+                }
+                else{
+                    state = TEMP_SCREEN;
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(500));
 
             break;        
 
