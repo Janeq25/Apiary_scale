@@ -64,6 +64,54 @@ int32_t tensometer_reading = 0;
 
 char response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
 
+esp_err_t synchronise_clock(){
+    char ntc_response[1024] = {0};
+    int hour=0, min=0, sec=0, day=0, mon=0, year=0;
+    char* datetime_ptr = 0;
+    char buffer[3] = {0};
+    if(gsm_get_status() != GSM_OK){
+        ESP_LOGI(TAG, "time sync failed gsm_status error");
+        return ESP_FAIL;
+    }
+
+    if (gsm_send_http_request("http://worldclockapi.com/api/jsonp/cet/now?callback=mycallback", "", ntc_response, 10000) != GSM_OK){
+        ESP_LOGI(TAG, "time sync failed http request error");
+        return ESP_FAIL;
+    }
+
+    if (strstr(ntc_response, "currentDateTime") == 0){
+        ESP_LOGI(TAG, "time sync failed invalid http response");
+        return ESP_FAIL;
+    }
+    else{
+
+        datetime_ptr = strstr(ntc_response, "currentDateTime");
+
+        strncpy(buffer, datetime_ptr + 20, 2);
+        year = atoi(buffer);
+
+        strncpy(buffer, datetime_ptr + 23, 2);
+        mon = atoi(buffer);
+
+        strncpy(buffer, datetime_ptr + 26, 2);
+        day = atoi(buffer);
+
+        strncpy(buffer, datetime_ptr + 29, 2);
+        hour = atoi(buffer);
+
+        strncpy(buffer, datetime_ptr + 32, 2);
+        min = atoi(buffer);
+
+
+        setTimeDateRTCIntern(hour, min, sec, day, mon, year);
+
+        return ESP_OK;
+
+    }
+
+    return ESP_FAIL;
+}
+
 
 // ------------------------------------------------ tensometer ------------------------------------------------
 
@@ -110,16 +158,6 @@ struct dht11_reading thermometer_reading;
 
 // ------------------------------------------------ display ------------------------------------------------
 
-void LCD_DemoTask()
-{
-    LCD_clearScreen();
-    LCD_setCursor(0, 0);
-    LCD_writeStr("--- 16x2 LCD ---");
-    LCD_setCursor(0, 1);
-    LCD_writeStr("LCD Library Demo");
-
-}
-
 void LCD_Write_screen(char* row1, char* row2){
 
     LCD_clearScreen();
@@ -130,46 +168,6 @@ void LCD_Write_screen(char* row1, char* row2){
 
 }
 
-void time_screen(){
-
-
-}
-
-// ------------------------------------------------ RTC --------------------------------------------------------
-
-
-
-
-void set_time()
-{
-    switch (eButton_Read(BUTTON_0))
-    {
-        case RELEASED:
-            break;
-        case PRESSED:
-            struct tm timeinfo = updateTime();
-            //printf("%02d:%02d:%02d:%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec,timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year);
-            setTimeDateRTCIntern((timeinfo.tm_hour + 1), timeinfo.tm_min, timeinfo.tm_sec , timeinfo.tm_mday, timeinfo.tm_mon, (timeinfo.tm_year - 100));
-            break;
-        default:
-            break;
-    }
-
-    switch (eButton_Read(BUTTON_1))
-    {
-        case RELEASED:
-            break;
-        case PRESSED:
-            struct tm timeinfo = updateTime();
-            //printf("%02d:%02d:%02d:%02d:%02d:%02d\n",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec,timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year);
-            setTimeDateRTCIntern(timeinfo.tm_hour, (timeinfo.tm_min + 1), timeinfo.tm_sec , timeinfo.tm_mday, timeinfo.tm_mon, (timeinfo.tm_year - 100));
-            break;
-        default:
-            break;
-    }
-
-    time_screen();
-}
 
 // ------------------------------------------------ deepsleep variables------------------------------------------------
 
@@ -179,34 +177,24 @@ RTC_DATA_ATTR u_int8_t time_set = 0;
 
 void app_main() {
 
-
-
-    // gsm_get_status();
-    // char GET_request_buffer[1024];
-    // gsm_send_http_request("http://worldclockapi.com/api/jsonp/cet/now?callback=mycallback", "", GET_request_buffer, 10000);
-    
-
-
     while(1)
     {
-
-
 
         switch (state){
             case INIT:
 
-                ESP_LOGI(TAG, "Initialising screen");
+                ESP_LOGI(TAG, "initialising screen");
                 LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
                 LCD_home();
                 LCD_clearScreen();
                 LCD_setCursor(0,0);
                 LCD_writeStr("Starting");
                 vTaskDelay(pdMS_TO_TICKS(500));
-                ESP_LOGI(TAG, "Initialising screen finished");
+                ESP_LOGI(TAG, "initialising screen finished");
 
 
                 ESP_LOGI(TAG, "Initialising Thermometer");
-                LCD_Write_screen("Inititlising", "Thermometer");
+                LCD_Write_screen("initialising", "Thermometer");
                 DHT11_init(TERMOMETER_PIN);
                 thermometer_reading = DHT11_read();
                 if (thermometer_reading.status == DHT11_OK){
@@ -225,7 +213,7 @@ void app_main() {
                 vTaskDelay(pdMS_TO_TICKS(500));
 
                 ESP_LOGI(TAG, "Initialising Tensometer");
-                LCD_Write_screen("Inititlising", "Tensometer");
+                LCD_Write_screen("initialising", "Tensometer");
                 if (tensometer_init() == ESP_OK){
                     tensometer_reading = tensometer_read_average();
                     char weight[LCD_COLS];
@@ -241,14 +229,27 @@ void app_main() {
                 vTaskDelay(pdMS_TO_TICKS(500));
 
                 ESP_LOGI(TAG, "initialising buttons");
-                LCD_Write_screen("Inititlising", "Buttons");
+                LCD_Write_screen("initialising", "Buttons");
                 Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
 
                 ESP_LOGI(TAG, "initialising Sim800l");
-                LCD_Write_screen("Inititlising", "GSM");
+                LCD_Write_screen("initialising", "GSM");
                 switch (gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN, GSM_RESPONSE_BUFFER_SIZE, response_buffer)){
                     case GSM_OK:
                     ESP_LOGI(TAG, "GSM ok");
+
+                    LCD_Write_screen("Downloading", "Time");
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    if (synchronise_clock() == ESP_FAIL){
+                    LCD_Write_screen("Time Sync", "ERROR");
+                    state = WAIT_FOR_RESET;
+                    break;
+
+                    }
+                    else{
+                        state = TIME_SCREEN;
+                        break;
+                    }
                     break;
 
                     case GSM_ERR_MODULE_NOT_CONNECTED:
@@ -286,25 +287,7 @@ void app_main() {
                     state = WAIT_FOR_RESET;
                     break;
                 }
-
-                vTaskDelay(pdMS_TO_TICKS(1000));
-
-                switch (time_set)
-                {
-                case 0:
-                    setTimeDateRTCIntern(0, 0, 0, 4, 11, 23);
-                    time_set = 1;
-                    break;
-                case 1:
-                    time_set = 1;
-                    break;
-                default:
-                    time_set = 1;
-                    break;
-                }
-
-                state = TIME_SCREEN;
-            break;
+                break;
 
             case TIME_SCREEN:
                 char row1[24];
