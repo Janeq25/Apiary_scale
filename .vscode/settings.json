@@ -12,5 +12,6 @@
         "types.h": "c",
         "uart.h": "c",
         "esp_err.h": "c"
-    }
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }
