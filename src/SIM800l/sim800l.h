@@ -26,6 +26,7 @@
 #define GSM_COMMAND_SET_EXTENDED_ERROR_REPORT   "AT+CMEE=2\n"
 #define GSM_COMMAND_LIST_NETWORK_OPERATORS      "AT+COPS=?\n"
 #define GSM_COMMAND_IS_REGISTERED               "AT+CREG?\n"
+#define GSM_COMMAND_RESET                       "AT+CFUN=1,1\n"
 
 //#define GSM_COMMAND_SET_APN                     "AT+CSTT=\"" APN_NAME "\",\"" APN_USER "\",\"" APN_PASS "\"\n"
 // #define GSM_COMMAND_SET_APN                     "AT+CSTT=\"" APN_NAME "\"\n"
