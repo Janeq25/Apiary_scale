@@ -1,16 +1,15 @@
 #include "driver/gpio.h"
 #include <BUTTONS/buttons.h>
 
+#include <esp_log.h>
+
+const char* TAG = "BUTTONS";
+
 enum Button_Name eButton_Name;
 
 enum Button_State ebut0_level = RELEASED; 
 enum Button_State ebut1_level = RELEASED; 
 
-uint8_t but_pin;
-
-uint8_t but_pin0;
-uint8_t but_pin1;
-uint8_t but_pin2;
 
 void Set_Button_0_state(void *arg)
 {

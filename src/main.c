@@ -14,6 +14,13 @@
 #include "DHT11/dht11.h" //thermometer
 #include "SIM800l/sim800l.h"
 
+
+// ------------------------------------------------ google sheets credentials ------------------------------------------------
+
+
+#define SCRIPT_URL "https://script.google.com/macros/s/AKfycbwDBpDpKHophcLcSt2PSKC8s0bfODd0M3xaDdeag1w5zY4x8MKO4mq2HmkNNymCQQCt/exec"
+#define SCRIPT_URL_BUFFER_SIZE 200
+
 // ------------------------------------------------ display config ------------------------------------------------
 
 #define LCD_ADDR 0x27 //display
@@ -63,6 +70,7 @@ int32_t tensometer_reading = 0;
 
 
 char response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
+char url_buffer[SCRIPT_URL_BUFFER_SIZE];
 
 esp_err_t synchronise_clock(){
     char ntc_response[1024] = {0};
@@ -86,8 +94,6 @@ esp_err_t synchronise_clock(){
         return ESP_FAIL;
     }
     else{
-
-
 
         strncpy(buffer, datetime_ptr + 13, 2);
         year = atoi(buffer);
@@ -113,6 +119,7 @@ esp_err_t synchronise_clock(){
 
     return ESP_FAIL;
 }
+
 
 
 // ------------------------------------------------ tensometer ------------------------------------------------
@@ -160,6 +167,10 @@ struct dht11_reading thermometer_reading;
 
 // ------------------------------------------------ display ------------------------------------------------
 
+char LCD_row1_buf[LCD_COLS+8];
+char LCD_row2_buf[LCD_COLS+8];
+
+
 void LCD_Write_screen(char* row1, char* row2){
 
     LCD_clearScreen();
@@ -175,14 +186,17 @@ void LCD_Write_screen(char* row1, char* row2){
 
 RTC_DATA_ATTR u_int8_t time_set = 0;
 
+struct tm timeinfo;
+
 // ------------------------------------------------ main ------------------------------------------------
 
 void app_main() {
 
     while(1)
     {
-
+        ESP_LOGI(TAG, "state is: %i", state);
         switch (state){
+
             case INIT:
 
                 ESP_LOGI(TAG, "initialising screen");
@@ -200,11 +214,10 @@ void app_main() {
                 DHT11_init(TERMOMETER_PIN);
                 thermometer_reading = DHT11_read();
                 if (thermometer_reading.status == DHT11_OK){
-                    char temp[LCD_COLS];
-                    char humid[LCD_COLS];
-                    sprintf(temp, "Temp: %d C", thermometer_reading.temperature);
-                    sprintf(humid, "Humid: %d ", thermometer_reading.humidity);
-                    LCD_Write_screen(temp, humid);
+
+                    sprintf(LCD_row1_buf, "Temp: %d C", thermometer_reading.temperature);
+                    sprintf(LCD_row2_buf, "Humid: %d ", thermometer_reading.humidity);
+                    LCD_Write_screen(LCD_row1_buf, LCD_row2_buf);
                 }
                 else{
                     ESP_LOGI(TAG, "DHT11 status: %d", thermometer_reading.status);
@@ -218,9 +231,8 @@ void app_main() {
                 LCD_Write_screen("initialising", "Tensometer");
                 if (tensometer_init() == ESP_OK){
                     tensometer_reading = tensometer_read_average();
-                    char weight[LCD_COLS];
-                    sprintf(weight, "%d g", (int)tensometer_reading);
-                    LCD_Write_screen("Weight: ", weight);
+                    sprintf(LCD_row1_buf, "%d g", (int)tensometer_reading);
+                    LCD_Write_screen("Weight: ", LCD_row1_buf);
                 }
                 else{
                     ESP_LOGI(TAG, "Tensometer init failed");
@@ -291,33 +303,39 @@ void app_main() {
                 break;
 
             case TIME_SCREEN:
-                char row1[24];
-                char row2[24];
 
-                struct tm timeinfo = updateTime();
+                timeinfo = updateTime();
 
-                sprintf(row1, "Time: %02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-                sprintf(row2, "Date: %02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
+                sprintf(LCD_row1_buf, "Time: %02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+                sprintf(LCD_row2_buf, "Date: %02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
 
-                LCD_Write_screen(row1, row2);
+                LCD_Write_screen(LCD_row1_buf, LCD_row2_buf);
 
                 if (eButton_Read(BUTTON_0) == PRESSED){
                     state = WEIGHT_SCREEN;
+                    break;
                 }
                 else{
                     state = TIME_SCREEN;
                 }
+
+                if (eButton_Read(BUTTON_1) == PRESSED){
+                    state = MEASUREMENT;
+                    break;
+                }
+                else{
+                    state = TIME_SCREEN;
+                }
+
 
                 vTaskDelay(pdMS_TO_TICKS(1000));
 
             break;      
 
             case WEIGHT_SCREEN:
-
                 tensometer_reading = tensometer_read_average();
-                char weight[LCD_COLS];
-                sprintf(weight, "%d g", (int)tensometer_reading);
-                LCD_Write_screen("Weight: ", weight);
+                sprintf(LCD_row1_buf, "%d g", (int)tensometer_reading);
+                LCD_Write_screen("Weight: ", LCD_row1_buf);
 
 
 
@@ -336,11 +354,9 @@ void app_main() {
 
                 thermometer_reading = DHT11_read();
                 if (thermometer_reading.status == DHT11_OK){
-                    char temp[LCD_COLS];
-                    char humid[LCD_COLS];
-                    sprintf(temp, "Temp: %d C", thermometer_reading.temperature);
-                    sprintf(humid, "Humid: %d ", thermometer_reading.humidity);
-                    LCD_Write_screen(temp, humid);
+                    sprintf(LCD_row1_buf, "Temp: %d C", thermometer_reading.temperature);
+                    sprintf(LCD_row2_buf, "Humid: %d ", thermometer_reading.humidity);
+                    LCD_Write_screen(LCD_row1_buf, LCD_row2_buf);
                 }
                 else{
                     ESP_LOGI(TAG, "DHT11 status: %d", thermometer_reading.status);
@@ -361,6 +377,46 @@ void app_main() {
 
             case MEASUREMENT:
 
+                memset(url_buffer, 0, SCRIPT_URL_BUFFER_SIZE);
+
+                strcat(url_buffer, SCRIPT_URL);
+
+                LCD_Write_screen("Sending", "Data");
+
+                strcat(url_buffer, "?col1=");
+
+                sprintf(LCD_row1_buf, "Time:%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+                sprintf(LCD_row2_buf, "Date:%02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
+                
+                strcat(url_buffer, LCD_row1_buf);
+                strcat(url_buffer, LCD_row2_buf);
+
+                strcat(url_buffer, "&col2=");
+
+                tensometer_reading = tensometer_read_average();
+                sprintf(LCD_row1_buf, "%dg", (int)tensometer_reading);
+
+                strcat(url_buffer, LCD_row1_buf);
+
+                strcat(url_buffer, "&col3=");
+
+                thermometer_reading = DHT11_read();
+                sprintf(LCD_row1_buf, "%dC", thermometer_reading.temperature);
+                sprintf(LCD_row2_buf, "%d%%", thermometer_reading.humidity);
+
+                strcat(url_buffer, LCD_row1_buf);
+
+                strcat(url_buffer, "&col4=");
+
+                strcat(url_buffer, LCD_row2_buf);
+
+                gsm_send_http_request(url_buffer, "", response_buffer, 10000);
+
+                LCD_Write_screen("Done", "Sending");
+
+                vTaskDelay(pdMS_TO_TICKS(1000));
+
+                state = TIME_SCREEN;
             break;
 
             case SLEEP:
@@ -379,7 +435,6 @@ void app_main() {
 
 
         }
-
         // printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
         // printf("thermometer - temp: %i, humid: %i \n", DHT11_read().temperature, DHT11_read().humidity);
         

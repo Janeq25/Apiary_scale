@@ -9,7 +9,7 @@
 #define GSM_DEBUG
 
 
-#define MAX_HTTP_URL_LENGTH 128
+#define MAX_HTTP_URL_LENGTH 200
 #define MAX_HTTP_REQUEST_LENGTH 128
 
 #define APN_NAME "internet"
