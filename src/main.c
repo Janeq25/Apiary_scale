@@ -243,10 +243,9 @@ void app_main() {
                     LCD_Write_screen("Downloading", "Time");
                     vTaskDelay(pdMS_TO_TICKS(500));
                     if (synchronise_clock() == ESP_FAIL){
-                    LCD_Write_screen("Time Sync", "ERROR");
-                    state = WAIT_FOR_RESET;
-                    break;
-
+                        LCD_Write_screen("Time Sync", "ERROR");
+                        state = WAIT_FOR_RESET;
+                        break;
                     }
                     else{
                         state = TIME_SCREEN;
