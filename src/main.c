@@ -74,32 +74,34 @@ esp_err_t synchronise_clock(){
         return ESP_FAIL;
     }
 
-    if (gsm_send_http_request("http://worldclockapi.com/api/jsonp/cet/now?callback=mycallback", "", ntc_response, 10000) != GSM_OK){
+    if (gsm_send_http_request("http://worldtimeapi.org/api/timezone/Poland", "", ntc_response, 10000) != GSM_OK){
         ESP_LOGI(TAG, "time sync failed http request error");
         return ESP_FAIL;
     }
 
-    if (strstr(ntc_response, "currentDateTime") == 0){
+    datetime_ptr = strstr(ntc_response, "datetime");
+
+    if (datetime_ptr == 0){
         ESP_LOGI(TAG, "time sync failed invalid http response");
         return ESP_FAIL;
     }
     else{
 
-        datetime_ptr = strstr(ntc_response, "currentDateTime");
 
-        strncpy(buffer, datetime_ptr + 20, 2);
+
+        strncpy(buffer, datetime_ptr + 13, 2);
         year = atoi(buffer);
 
-        strncpy(buffer, datetime_ptr + 23, 2);
+        strncpy(buffer, datetime_ptr + 16, 2);
         mon = atoi(buffer);
 
-        strncpy(buffer, datetime_ptr + 26, 2);
+        strncpy(buffer, datetime_ptr + 19, 2);
         day = atoi(buffer);
 
-        strncpy(buffer, datetime_ptr + 29, 2);
+        strncpy(buffer, datetime_ptr + 22, 2);
         hour = atoi(buffer);
 
-        strncpy(buffer, datetime_ptr + 32, 2);
+        strncpy(buffer, datetime_ptr + 25, 2);
         min = atoi(buffer);
 
 
