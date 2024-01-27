@@ -67,11 +67,95 @@ hx711_t tensometer;
 int32_t scale_offset = 0;
 int32_t tensometer_reading = 0;
 
+
+// ------------------------------------------------ tensometer ------------------------------------------------
+
+int32_t tensometer_read_average(){
+    int32_t tensometer_data = 0;
+    int32_t sum = 0;
+    int32_t mean = 0;
+    for (uint8_t i = 0; i < SCALE_AVERAGE_READS; i++){
+        hx711_read_data(&tensometer, &tensometer_data);
+        hx711_wait(&tensometer, 500);
+        #ifdef TENSOLETER_INVERT_OUTPUT
+            sum += (tensometer_data * -1);
+        #else
+            sum += (tensometer_data);
+        #endif
+        
+    }
+    mean = sum/SCALE_AVERAGE_READS;
+    mean = mean - scale_offset;
+    mean = mean/SCALE_CONST;
+    return mean;
+
+}
+void tensometer_set_offset(){
+    int32_t tensometer_data = 0;
+    hx711_read_data(&tensometer, &tensometer_data);
+    hx711_wait(&tensometer, 500);
+    #ifdef TENSOLETER_INVERT_OUTPUT
+        scale_offset = (tensometer_data * -1);
+    #else
+        scale_offset = (tensometer_data);
+    #endif
+}
+
+esp_err_t tensometer_init(){
+
+    esp_err_t status;
+
+    tensometer.dout = TENSOMETER_DOUT_PIN;
+    tensometer.pd_sck = TENSOMETER_SCK_PIN;
+    tensometer.gain = TENSOMETER_GAIN;
+
+    status = hx711_init(&tensometer);
+    // if(hx711_init(&tensometer) != ESP_OK){
+    //     printf("ERR - failed to initialise tensometer\n");
+    //     return ESP_ERR_INVALID_RESPONSE;
+    // }
+
+    tensometer_set_offset();
+    ESP_LOGI(TAG, "scale_offset: %" PRIi32 "\n", scale_offset);
+
+    return status;
+}
+
+// ------------------------------------------------ thermometer globals ------------------------------------------------
+
+struct dht11_reading thermometer_reading;
+
+// ------------------------------------------------ display ------------------------------------------------
+
+char LCD_row1_buf[LCD_COLS+8];
+char LCD_row2_buf[LCD_COLS+8];
+
+
+void LCD_Write_screen(char* row1, char* row2){
+
+    LCD_clearScreen();
+    LCD_setCursor(0, 0);
+    LCD_writeStr(row1);
+    LCD_setCursor(0, 1);
+    LCD_writeStr(row2);
+
+}
+
+// ------------------------------------------------ deepsleep variables------------------------------------------------
+
+RTC_DATA_ATTR u_int8_t time_set = 0;
+
+struct tm timeinfo;
+
+void goto_sleep(){
+
+}
+
+
 // ------------------------------------------------ sim800l (uart) ------------------------------------------------
 
 
 char response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
-char url_buffer[SCRIPT_URL_BUFFER_SIZE];
 char script_response_buffer[2048] = {0};
 
 esp_err_t synchronise_clock(){
@@ -84,7 +168,7 @@ esp_err_t synchronise_clock(){
         return ESP_FAIL;
     }
 
-    if (gsm_send_http_request("http://worldtimeapi.org/api/timezone/Poland", ntc_response, 10000) != GSM_OK){
+    if (gsm_send_http_request("http://worldtimeapi.org/api/timezone/Poland", ntc_response, 5000) != GSM_OK){
         ESP_LOGI(TAG, "time sync failed http request error");
         return ESP_FAIL;
     }
@@ -122,78 +206,63 @@ esp_err_t synchronise_clock(){
     return ESP_FAIL;
 }
 
+void send_measurements(){
+    char url_buffer[SCRIPT_URL_BUFFER_SIZE];
+    char data_buf[24] = {0};
 
+    memset(url_buffer, 0, SCRIPT_URL_BUFFER_SIZE);
 
-// ------------------------------------------------ tensometer ------------------------------------------------
+    strcat(url_buffer, SCRIPT_URL);
 
-int32_t tensometer_read_average(){
-    int32_t tensometer_data = 0;
-    int32_t sum = 0;
-    int32_t mean = 0;
-    for (uint8_t i = 0; i < SCALE_AVERAGE_READS; i++){
-        hx711_read_data(&tensometer, &tensometer_data);
-        hx711_wait(&tensometer, 500);
-        #ifdef TENSOLETER_INVERT_OUTPUT
-            sum += (tensometer_data * -1);
-        #else
-            sum += (tensometer_data);
-        #endif
-        
+    strcat(url_buffer, "col1=");
+
+    sprintf(data_buf, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    
+    strcat(url_buffer, data_buf);
+
+    strcat(url_buffer, "&col2=");
+
+    sprintf(data_buf, "%02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
+
+    strcat(url_buffer, data_buf);
+
+    strcat(url_buffer, "&col3=");
+
+    tensometer_reading = tensometer_read_average();
+    sprintf(data_buf, "%dg", (int)tensometer_reading);
+
+    strcat(url_buffer, data_buf);
+
+    strcat(url_buffer, "&col4=");
+
+    thermometer_reading = DHT11_read();
+    sprintf(data_buf, "%d", thermometer_reading.temperature);
+
+    strcat(url_buffer, data_buf);
+
+    strcat(url_buffer, "&col5=");
+
+    sprintf(data_buf, "%d", thermometer_reading.humidity);
+
+    strcat(url_buffer, data_buf);
+
+    if (gsm_send_http_request(url_buffer, script_response_buffer, 5000) != GSM_OK){
+        LCD_Write_screen("Data send", "failed GSM ERR");
+        vTaskDelay(pdMS_TO_TICKS(1500));
     }
-    mean = sum/SCALE_AVERAGE_READS;
-    mean = mean - scale_offset;
-    mean = mean/SCALE_CONST;
-    return mean;
-
-}
-
-esp_err_t tensometer_init(){
-
-    esp_err_t status;
-
-    tensometer.dout = TENSOMETER_DOUT_PIN;
-    tensometer.pd_sck = TENSOMETER_SCK_PIN;
-    tensometer.gain = TENSOMETER_GAIN;
-
-    status = hx711_init(&tensometer);
-    // if(hx711_init(&tensometer) != ESP_OK){
-    //     printf("ERR - failed to initialise tensometer\n");
-    //     return ESP_ERR_INVALID_RESPONSE;
-    // }
-
-    scale_offset = tensometer_read_average();
-    scale_offset = scale_offset * SCALE_CONST;
-    ESP_LOGI(TAG, "scale_offset: %" PRIi32 "\n", scale_offset);
-
-    return status;
-}
-
-// ------------------------------------------------ thermometer globals ------------------------------------------------
-
-struct dht11_reading thermometer_reading;
-
-// ------------------------------------------------ display ------------------------------------------------
-
-char LCD_row1_buf[LCD_COLS+8];
-char LCD_row2_buf[LCD_COLS+8];
-
-
-void LCD_Write_screen(char* row1, char* row2){
-
-    LCD_clearScreen();
-    LCD_setCursor(0, 0);
-    LCD_writeStr(row1);
-    LCD_setCursor(0, 1);
-    LCD_writeStr(row2);
+    else{
+        if (strstr(script_response_buffer, "Moved")){
+            LCD_Write_screen("Server Response", "DATA RECEIVED");
+            vTaskDelay(pdMS_TO_TICKS(1500));
+        }else{
+            LCD_Write_screen("Server No", "Response");
+            vTaskDelay(pdMS_TO_TICKS(1500));
+        }
+    }
 
 }
 
 
-// ------------------------------------------------ deepsleep variables------------------------------------------------
-
-RTC_DATA_ATTR u_int8_t time_set = 0;
-
-struct tm timeinfo;
 
 // ------------------------------------------------ main ------------------------------------------------
 
@@ -327,15 +396,20 @@ void app_main() {
                 }
 
                 if (eButton_Read(BUTTON_1) == PRESSED){
-                    state = MEASUREMENT;
-                    break;
+                    LCD_Write_screen("Downloading", "Time");
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    if (synchronise_clock() == ESP_FAIL){
+                        LCD_Write_screen("Time Sync", "ERROR");
+                        state = WAIT_FOR_RESET;
+                        break;
+                    }
                 }
                 else{
                     state = TIME_SCREEN;
                 }
 
 
-                vTaskDelay(pdMS_TO_TICKS(1000));
+                vTaskDelay(pdMS_TO_TICKS(500));
 
             break;      
 
@@ -344,16 +418,23 @@ void app_main() {
                 sprintf(LCD_row1_buf, "%d g", (int)tensometer_reading);
                 LCD_Write_screen("Weight: ", LCD_row1_buf);
 
-
-
                 if (eButton_Read(BUTTON_0) == PRESSED){
                     state = TEMP_SCREEN;
+                    break;
                 }
                 else{
                     state = WEIGHT_SCREEN;
                 }
 
-                vTaskDelay(pdMS_TO_TICKS(1000));
+                if (eButton_Read(BUTTON_1) == PRESSED){
+                    tensometer_set_offset();
+                    ESP_LOGI(TAG, "scale_offset: %" PRIi32 "\n", scale_offset);
+                }
+                else{
+                    state = WEIGHT_SCREEN;
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(500));
 
             break;
 
@@ -362,7 +443,7 @@ void app_main() {
                 thermometer_reading = DHT11_read();
                 if (thermometer_reading.status == DHT11_OK){
                     sprintf(LCD_row1_buf, "Temp: %d C", thermometer_reading.temperature);
-                    sprintf(LCD_row2_buf, "Humid: %d ", thermometer_reading.humidity);
+                    sprintf(LCD_row2_buf, "Humid: %d %%", thermometer_reading.humidity);
                     LCD_Write_screen(LCD_row1_buf, LCD_row2_buf);
                 }
                 else{
@@ -372,72 +453,65 @@ void app_main() {
                 }
 
                 if (eButton_Read(BUTTON_0) == PRESSED){
-                    state = TIME_SCREEN;
+                    state = MEASUREMENT;
+                    break;
                 }
                 else{
                     state = TEMP_SCREEN;
                 }
 
-                vTaskDelay(pdMS_TO_TICKS(1000));
+                if (eButton_Read(BUTTON_1) == PRESSED){
+                    state = TEMP_SCREEN;
+                    break;
+                }
+                else{
+                    state = TEMP_SCREEN;
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(500));
 
             break;        
 
             case MEASUREMENT:
+                LCD_Write_screen("Manual", "Send?");
 
-                memset(url_buffer, 0, SCRIPT_URL_BUFFER_SIZE);
-
-                strcat(url_buffer, SCRIPT_URL);
-
-                LCD_Write_screen("Sending", "Data");
-
-                strcat(url_buffer, "col1=");
-
-                sprintf(LCD_row1_buf, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-                sprintf(LCD_row2_buf, "%02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
-                
-                strcat(url_buffer, LCD_row1_buf);
-
-                strcat(url_buffer, "&col2=");
-
-                strcat(url_buffer, LCD_row2_buf);
-
-                strcat(url_buffer, "&col3=");
-
-                tensometer_reading = tensometer_read_average();
-                sprintf(LCD_row1_buf, "%dg", (int)tensometer_reading);
-
-                strcat(url_buffer, LCD_row1_buf);
-
-                strcat(url_buffer, "&col4=");
-
-                thermometer_reading = DHT11_read();
-                sprintf(LCD_row1_buf, "%d", thermometer_reading.temperature);
-                sprintf(LCD_row2_buf, "%d", thermometer_reading.humidity);
-
-                strcat(url_buffer, LCD_row1_buf);
-
-                strcat(url_buffer, "&col5=");
-
-                strcat(url_buffer, LCD_row2_buf);
-
-                if (gsm_send_http_request(url_buffer, script_response_buffer, 15000) != GSM_OK){
-                    LCD_Write_screen("Data send", "failed GSM ERR");
-                    vTaskDelay(pdMS_TO_TICKS(1500));
+                if (eButton_Read(BUTTON_0) == PRESSED){
+                    state = SLEEP;
+                    break;
                 }
                 else{
-                    if (strstr(script_response_buffer, "Moved")){
-                        LCD_Write_screen("Server Response", "DATA RECEIVED");
-                        vTaskDelay(pdMS_TO_TICKS(1500));
-                    }else{
-                        LCD_Write_screen("Server No", "Response");
-                        vTaskDelay(pdMS_TO_TICKS(1500));
-                    }
+                    state = MEASUREMENT;
                 }
-                state = TIME_SCREEN;
+                
+                if (eButton_Read(BUTTON_1) == PRESSED){
+                    LCD_Write_screen("Sending", "Data");
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    send_measurements();
+                }
+
+                state = MEASUREMENT;
+                vTaskDelay(pdMS_TO_TICKS(500));
             break;
 
             case SLEEP:
+                LCD_Write_screen("Sleep", "Mode?");
 
+                if (eButton_Read(BUTTON_0) == PRESSED){
+                    state = TIME_SCREEN;
+                    break;
+                }
+                else{
+                    state = SLEEP;
+                }
+                
+                if (eButton_Read(BUTTON_1) == PRESSED){
+                    LCD_Write_screen("Sleep", "Active");
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    goto_sleep();
+                }
+
+                state = SLEEP;
+                vTaskDelay(pdMS_TO_TICKS(500));
             break;
 
             case WAKEUP:
