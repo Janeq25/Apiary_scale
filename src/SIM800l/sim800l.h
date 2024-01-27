@@ -28,6 +28,7 @@
 #define GSM_COMMAND_LIST_NETWORK_OPERATORS      "AT+COPS=?\n"
 #define GSM_COMMAND_IS_REGISTERED               "AT+CREG?\n"
 #define GSM_COMMAND_RESET                       "AT+CFUN=1,1\n"
+#define GSM_ENABLE_SLEEP_MODE                   "AT+CSCLK=2\n"
 
 //#define GSM_COMMAND_SET_APN                     "AT+CSTT=\"" APN_NAME "\",\"" APN_USER "\",\"" APN_PASS "\"\n"
 // #define GSM_COMMAND_SET_APN                     "AT+CSTT=\"" APN_NAME "\"\n"
@@ -74,6 +75,8 @@ gsm_err_t gsm_get_status();
 gsm_err_t gsm_enter_pin(const char* pin);
 gsm_err_t gsm_send_command(char* command, uint ms_to_wait);
 gsm_err_t gsm_send_http_request(char* url, char* GET_request_response_buffer, size_t timeout);
+gsm_err_t gsm_enable_sleep();
+
 // gsm_err_t gsm_call(const char* phone_number);
 // gsm_err_t gsm_send_sms(const char* phone_number, const char* contents);
 // gsm_err_t send_send_POST_request(char* url, char* request);

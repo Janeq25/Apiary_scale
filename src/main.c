@@ -6,6 +6,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_sleep.h>
+#include <driver/rtc_io.h>
 
 #include "BUTTONS/buttons.h" //buttons
 #include "HD44780/HD44780.h" //display
@@ -56,15 +57,26 @@
 
 // ------------------------------------------------ main globals ------------------------------------------------
 
+#define NOT_SET             0
+#define THIRTY_SEC_us       30000000
+#define ONE_HOUR_us         3600000000
+#define SIX_HOURS_us        6*ONE_HOUR_us
+#define TWELVE_HOURS_us     12*ONE_HOUR_us
+#define TWENTYFOUR_HOURS_us 24*ONE_HOUR_us
+
+
+
 static const char* TAG = "MAIN";
-enum state_e {INIT, TIME_SCREEN, WEIGHT_SCREEN, TEMP_SCREEN, MEASUREMENT, SLEEP, WAKEUP, WAIT_FOR_RESET};
-enum state_e state = INIT;
+enum state_e {INIT, TIME_SCREEN, WEIGHT_SCREEN, TEMP_SCREEN, MEASUREMENT, SLEEP, SLEEP_SETTINGS, WAIT_FOR_RESET};
+RTC_DATA_ATTR enum state_e state = INIT;
+
+RTC_DATA_ATTR uint64_t wakeup_interval = NOT_SET;
 
 // ------------------------------------------------ tensometer globals ------------------------------------------------
 
 
 hx711_t tensometer;
-int32_t scale_offset = 0;
+RTC_DATA_ATTR int32_t scale_offset = 0;
 int32_t tensometer_reading = 0;
 
 
@@ -115,7 +127,6 @@ esp_err_t tensometer_init(){
     //     return ESP_ERR_INVALID_RESPONSE;
     // }
 
-    tensometer_set_offset();
     ESP_LOGI(TAG, "scale_offset: %" PRIi32 "\n", scale_offset);
 
     return status;
@@ -141,14 +152,18 @@ void LCD_Write_screen(char* row1, char* row2){
 
 }
 
-// ------------------------------------------------ deepsleep variables------------------------------------------------
-
-RTC_DATA_ATTR u_int8_t time_set = 0;
+// ------------------------------------------------ deepsleep -------------------------------------------------
 
 struct tm timeinfo;
 
 void goto_sleep(){
-
+    LCD_Off();
+    gsm_enable_sleep();
+    state = INIT;
+    rtc_gpio_hold_en(BUTTON_0_GPIO);
+    esp_sleep_enable_ext0_wakeup(BUTTON_0_GPIO, 0);
+    esp_sleep_enable_timer_wakeup(wakeup_interval);
+    esp_deep_sleep_start();
 }
 
 
@@ -157,9 +172,9 @@ void goto_sleep(){
 
 char response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
 char script_response_buffer[2048] = {0};
+char ntc_response[1024] = {0};
 
 esp_err_t synchronise_clock(){
-    char ntc_response[1024] = {0};
     int hour=0, min=0, sec=0, day=0, mon=0, year=0;
     char* datetime_ptr = 0;
     char buffer[3] = {0};
@@ -206,7 +221,7 @@ esp_err_t synchronise_clock(){
     return ESP_FAIL;
 }
 
-void send_measurements(){
+esp_err_t send_measurements(){
     char url_buffer[SCRIPT_URL_BUFFER_SIZE];
     char data_buf[24] = {0};
 
@@ -246,17 +261,20 @@ void send_measurements(){
 
     strcat(url_buffer, data_buf);
 
-    if (gsm_send_http_request(url_buffer, script_response_buffer, 5000) != GSM_OK){
+    if (gsm_send_http_request(url_buffer, script_response_buffer, 10000) != GSM_OK){
         LCD_Write_screen("Data send", "failed GSM ERR");
         vTaskDelay(pdMS_TO_TICKS(1500));
+        return ESP_FAIL;
     }
     else{
         if (strstr(script_response_buffer, "Moved")){
             LCD_Write_screen("Server Response", "DATA RECEIVED");
             vTaskDelay(pdMS_TO_TICKS(1500));
+            return ESP_OK;
         }else{
             LCD_Write_screen("Server No", "Response");
             vTaskDelay(pdMS_TO_TICKS(1500));
+            return ESP_FAIL;
         }
     }
 
@@ -270,7 +288,6 @@ void app_main() {
 
     while(1)
     {
-        ESP_LOGI(TAG, "state is: %i", state);
         switch (state){
 
             case INIT:
@@ -283,6 +300,10 @@ void app_main() {
                 LCD_writeStr("Starting");
                 vTaskDelay(pdMS_TO_TICKS(500));
                 ESP_LOGI(TAG, "initialising screen finished");
+
+                ESP_LOGI(TAG, "initialising buttons");
+                LCD_Write_screen("initialising", "Buttons");
+                Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
 
 
                 ESP_LOGI(TAG, "Initialising Thermometer");
@@ -318,10 +339,6 @@ void app_main() {
 
                 vTaskDelay(pdMS_TO_TICKS(500));
 
-                ESP_LOGI(TAG, "initialising buttons");
-                LCD_Write_screen("initialising", "Buttons");
-                Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
-
                 ESP_LOGI(TAG, "initialising Sim800l");
                 LCD_Write_screen("initialising", "GSM");
                 switch (gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN, GSM_RESPONSE_BUFFER_SIZE, response_buffer)){
@@ -336,8 +353,33 @@ void app_main() {
                         break;
                     }
                     else{
-                        state = TIME_SCREEN;
-                        break;
+                        LCD_Write_screen("Sending", "Measurements");
+                        timeinfo = updateTime();
+                        if (send_measurements() == ESP_FAIL){
+                            LCD_Write_screen("Resending data", "again");
+                            send_measurements();
+                        }
+
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+
+                        if(eButton_Read(BUTTON_0_GPIO) == PRESSED){
+                            state = TIME_SCREEN;
+                            break;
+                        }
+                        else if (eButton_Read(BUTTON_1_GPIO) == PRESSED){
+                            state = TIME_SCREEN;
+                            break;
+                        }
+                        else if (wakeup_interval == NOT_SET){
+                            state = TIME_SCREEN;
+                            break;
+                        }
+                        else{
+                            LCD_Write_screen("Going to", "Sleep");
+                            vTaskDelay(pdMS_TO_TICKS(1000));
+                            goto_sleep();
+                        }
+
                     }
                     break;
 
@@ -476,7 +518,7 @@ void app_main() {
                 LCD_Write_screen("Manual", "Send?");
 
                 if (eButton_Read(BUTTON_0) == PRESSED){
-                    state = SLEEP;
+                    state = SLEEP_SETTINGS;
                     break;
                 }
                 else{
@@ -493,7 +535,76 @@ void app_main() {
                 vTaskDelay(pdMS_TO_TICKS(500));
             break;
 
-            case SLEEP:
+            
+            case SLEEP_SETTINGS:
+
+                switch(wakeup_interval){
+                    case NOT_SET:
+                    LCD_Write_screen("Wakeup Every", "not set");
+                    if (eButton_Read(BUTTON_1) == PRESSED){
+                        wakeup_interval = THIRTY_SEC_us;
+                        break;
+                    }
+                    break;
+
+
+                    case THIRTY_SEC_us:
+                    LCD_Write_screen("Wakeup Every", "30 seconds");
+                    if (eButton_Read(BUTTON_1) == PRESSED){
+                        wakeup_interval = ONE_HOUR_us;
+                        break;
+                    }
+                    break;
+
+                    case ONE_HOUR_us:
+                    LCD_Write_screen("Wakeup Every", "1 hour");
+                    if (eButton_Read(BUTTON_1) == PRESSED){
+                        wakeup_interval = SIX_HOURS_us;
+                        break;
+                    }
+                    break;
+
+                    case SIX_HOURS_us:
+                    LCD_Write_screen("Wakeup Every", "6 hours");
+                    if (eButton_Read(BUTTON_1) == PRESSED){
+                        wakeup_interval = TWELVE_HOURS_us;
+                        break;
+                    }
+                    break;
+
+                    case TWELVE_HOURS_us:
+                    LCD_Write_screen("Wakeup Every", "12 hours");
+                    if (eButton_Read(BUTTON_1) == PRESSED){
+                        wakeup_interval = TWENTYFOUR_HOURS_us;
+                        break;
+                    }
+                    break;
+
+                    case TWENTYFOUR_HOURS_us:
+                    LCD_Write_screen("Wakeup Every", "24 hours");
+                    if (eButton_Read(BUTTON_1) == PRESSED){
+                        wakeup_interval = NOT_SET;
+                        break;
+                    }
+                    break;
+                    
+                }
+                
+
+                if (eButton_Read(BUTTON_0) == PRESSED){
+                    state = SLEEP;
+                    break;
+                }
+                else{
+                    state = SLEEP_SETTINGS;
+                }
+
+                state = SLEEP_SETTINGS;
+                vTaskDelay(pdMS_TO_TICKS(500));
+            break;
+
+
+                case SLEEP:
                 LCD_Write_screen("Sleep", "Mode?");
 
                 if (eButton_Read(BUTTON_0) == PRESSED){
@@ -514,14 +625,15 @@ void app_main() {
                 vTaskDelay(pdMS_TO_TICKS(500));
             break;
 
-            case WAKEUP:
-
-            break;
-
             case WAIT_FOR_RESET:
 
             state = WAIT_FOR_RESET;
-            vTaskDelay(pdMS_TO_TICKS(10));
+
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            LCD_Write_screen("Reseting", "");
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            esp_restart();
+
             break;
 
 

@@ -40,6 +40,8 @@ gsm_err_t gsm_init(uart_port_t uart_port, uint tx_pin, uint rx_pin, uint rx_buff
     }
 
 
+    if (gsm_send_command(GSM_COMMAND_IS_READY, 100) != GSM_OK) return gsm_status;
+
     if (gsm_send_command(GSM_COMMAND_RESET, 100) != GSM_OK) return gsm_status;
     if (strstr(response_buf, "OK") == 0){
         ESP_LOGI(TAG, "gsm module not responding");
@@ -103,6 +105,8 @@ gsm_err_t gsm_send_command(char* command, uint ms_to_wait){
 }
 
 gsm_err_t gsm_get_status(){
+
+    if (gsm_send_command(GSM_COMMAND_IS_READY, 100) != GSM_OK) return gsm_status;
 
     if (gsm_send_command(GSM_COMMAND_IS_READY, 100) != GSM_OK) return gsm_status;
     if (strstr(response_buf, "OK") == 0){
@@ -294,6 +298,16 @@ gsm_err_t gsm_send_http_request(char* url, char* GET_request_response_buffer, si
 
 }
 
+
+gsm_err_t gsm_enable_sleep(){
+    if (gsm_send_command(GSM_ENABLE_SLEEP_MODE, 100) != GSM_OK) return gsm_status;
+    if (strstr(response_buf, "OK") == 0){
+        ESP_LOGI(TAG, "gsm module not responding");
+        gsm_status = GSM_ERR_MODULE_NOT_CONNECTED;
+        return GSM_ERR_MODULE_NOT_CONNECTED;
+    }
+    return GSM_OK;
+}
 
 
 // gsm_err_t gsm_call(const char* phone_number){
