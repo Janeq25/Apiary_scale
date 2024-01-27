@@ -238,12 +238,15 @@ gsm_err_t gsm_send_http_request(char* url, char* GET_request_response_buffer, si
         return GSM_ERR_HTTP_FAILED;
     }
 
-    if (gsm_send_command(GSM_COMMAND_ALLOW_REDIRECT, 300) != GSM_OK) return gsm_status;
-    if (strstr(response_buf, "OK") == 0){
-        ESP_LOGI(TAG, "failed to allow redirect");
-        gsm_status = GSM_ERR_HTTP_FAILED;
-        return GSM_ERR_HTTP_FAILED;
-    }
+
+    #ifdef ALLOW_REDIRECTIONS
+        if (gsm_send_command(GSM_COMMAND_ALLOW_REDIRECT, 300) != GSM_OK) return gsm_status;
+        if (strstr(response_buf, "OK") == 0){
+            ESP_LOGI(TAG, "failed to allow redirect");
+            gsm_status = GSM_ERR_HTTP_FAILED;
+            return GSM_ERR_HTTP_FAILED;
+        }
+    #endif
 
 
     if (strstr(url_buffer, "https") != 0){

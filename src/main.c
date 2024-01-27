@@ -17,7 +17,7 @@
 
 // ------------------------------------------------ google sheets credentials ------------------------------------------------
 
-#define SCRIPT_ID "AKfycbx0Sy48afnkGugS_ixx-q7O4FEpvGrV26N5jNDT5OD_TkEvYCuXv522ae1zY-ZnP25b"
+#define SCRIPT_ID "AKfycbyK8iICZ1q51I5TIr3U0ChHTZSPx7FYG67E91rD2zMAY5iXMSy5kZ1k4eL9s-KQDR0P"
 #define SCRIPT_URL "https://script.google.com/macros/s/" SCRIPT_ID "/exec?"
 #define SCRIPT_URL_BUFFER_SIZE 200
 
@@ -71,7 +71,7 @@ int32_t tensometer_reading = 0;
 
 char response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
 char url_buffer[SCRIPT_URL_BUFFER_SIZE];
-char script_response_buffer[10] = {0};
+char script_response_buffer[2048] = {0};
 
 esp_err_t synchronise_clock(){
     char ntc_response[1024] = {0};
@@ -414,17 +414,19 @@ void app_main() {
 
                 strcat(url_buffer, LCD_row2_buf);
 
-                gsm_send_http_request(url_buffer, script_response_buffer, 15000);
-
-                if (strstr(script_response_buffer, "OK")){
-                    LCD_Write_screen("Server Response", "OK");
-                    vTaskDelay(pdMS_TO_TICKS(1500));
-                }else{
-                    LCD_Write_screen("Server No", "Response");
+                if (gsm_send_http_request(url_buffer, script_response_buffer, 15000) != GSM_OK){
+                    LCD_Write_screen("Data send", "failed GSM ERR");
                     vTaskDelay(pdMS_TO_TICKS(1500));
                 }
-
-
+                else{
+                    if (strstr(script_response_buffer, "Moved")){
+                        LCD_Write_screen("Server Response", "DATA RECEIVED");
+                        vTaskDelay(pdMS_TO_TICKS(1500));
+                    }else{
+                        LCD_Write_screen("Server No", "Response");
+                        vTaskDelay(pdMS_TO_TICKS(1500));
+                    }
+                }
                 state = TIME_SCREEN;
             break;
 

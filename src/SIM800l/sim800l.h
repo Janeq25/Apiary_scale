@@ -7,6 +7,7 @@
 #include <esp_log.h>
 
 #define GSM_DEBUG
+//#define ALLOW_REDIRECTIONS
 
 
 #define MAX_HTTP_URL_LENGTH 200
