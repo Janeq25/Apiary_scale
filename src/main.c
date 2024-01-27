@@ -160,6 +160,8 @@ void goto_sleep(){
     LCD_Off();
     gsm_enable_sleep();
     state = INIT;
+    
+    gpio_pullup_en(BUTTON_0_GPIO);
     rtc_gpio_hold_en(BUTTON_0_GPIO);
     esp_sleep_enable_ext0_wakeup(BUTTON_0_GPIO, 0);
     esp_sleep_enable_timer_wakeup(wakeup_interval);
@@ -303,7 +305,9 @@ void app_main() {
 
                 ESP_LOGI(TAG, "initialising buttons");
                 LCD_Write_screen("initialising", "Buttons");
+                rtc_gpio_hold_dis(BUTTON_0_GPIO);
                 Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
+
 
 
                 ESP_LOGI(TAG, "Initialising Thermometer");
