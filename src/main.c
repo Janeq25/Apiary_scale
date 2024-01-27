@@ -41,6 +41,7 @@
 #define TENSOMETER_DOUT_PIN 33
 #define TENSOMETER_SCK_PIN 32
 #define TENSOMETER_GAIN 0
+#define TENSOLETER_INVERT_OUTPUT
 
 // ------------------------------------------------ thermometer config ------------------------------------------------
 
@@ -132,7 +133,12 @@ int32_t tensometer_read_average(){
     for (uint8_t i = 0; i < SCALE_AVERAGE_READS; i++){
         hx711_read_data(&tensometer, &tensometer_data);
         hx711_wait(&tensometer, 500);
-        sum += tensometer_data;
+        #ifdef TENSOLETER_INVERT_OUTPUT
+            sum += (tensometer_data * -1);
+        #else
+            sum += (tensometer_data);
+        #endif
+        
     }
     mean = sum/SCALE_AVERAGE_READS;
     mean = mean - scale_offset;
