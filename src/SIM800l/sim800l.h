@@ -36,10 +36,14 @@
 #define GSM_COMMAND_SET_GPRS                    "AT+SAPBR=3,1,\"Contype\",\"GPRS\"\n"
 #define GSM_COMMAND_SET_APN                     "AT+SAPBR=3,1,\"APN\"," "\"" APN_NAME "\"\n" 
 #define GSM_COMMAND_START_GPRS                  "AT+SAPBR=1,1\n"
+#define GSM_COMMAND_GET_IP                      "AT+SAPBR=2,1\n"
 #define GSM_COMMAND_HTTP_INIT                   "AT+HTTPINIT\n"
 #define GSM_COMMAND_HTTP_SESSION_PARAMS         "AT+HTTPPARA=\"CID\",1\n"
 #define GSM_COMMAND_HTTP_URL                    "AT+HTTPPARA=\"URL\"," // \"http://google.com/\"
 #define GSM_COMMAND_HTTP_CONTENT                "AT+HTTPPARA=\"CONTENT\"," // \"application/json/\"
+#define GSM_COMMAND_ALLOW_REDIRECT              "AT+HTTPPARA=\"REDIR\",1\n"
+#define GSM_COMMAND_ENABLE_SSL                  "AT+HTTPSSL=1\n"
+#define GSM_COMMAND_DISABLE_SSL                 "AT+SSLOPT=0,1\n"
 #define GSM_COMMAND_INITIATE_HTTP_REQUEST       "AT+HTTPACTION=0\n"
 #define GSM_COMMAND_READ_HTTP_RESPONSE          "AT+HTTPREAD\n"
 #define GSM_COMMAND_TERMINATE_HTTP_SETVICE      "AT+HTTPTERM\n"
@@ -68,7 +72,7 @@ gsm_err_t gsm_init(uart_port_t uart_port, uint tx_pin, uint rx_pin, uint rx_buff
 gsm_err_t gsm_get_status();
 gsm_err_t gsm_enter_pin(const char* pin);
 gsm_err_t gsm_send_command(char* command, uint ms_to_wait);
-gsm_err_t gsm_send_http_request(char* url, char* content, char* GET_request_response_buffer, size_t timeout);
+gsm_err_t gsm_send_http_request(char* url, char* GET_request_response_buffer, size_t timeout);
 // gsm_err_t gsm_call(const char* phone_number);
 // gsm_err_t gsm_send_sms(const char* phone_number, const char* contents);
 // gsm_err_t send_send_POST_request(char* url, char* request);

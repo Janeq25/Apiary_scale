@@ -17,8 +17,8 @@
 
 // ------------------------------------------------ google sheets credentials ------------------------------------------------
 
-
-#define SCRIPT_URL "https://script.google.com/macros/s/AKfycbwDBpDpKHophcLcSt2PSKC8s0bfODd0M3xaDdeag1w5zY4x8MKO4mq2HmkNNymCQQCt/exec"
+#define SCRIPT_ID "AKfycbx0Sy48afnkGugS_ixx-q7O4FEpvGrV26N5jNDT5OD_TkEvYCuXv522ae1zY-ZnP25b"
+#define SCRIPT_URL "https://script.google.com/macros/s/" SCRIPT_ID "/exec?"
 #define SCRIPT_URL_BUFFER_SIZE 200
 
 // ------------------------------------------------ display config ------------------------------------------------
@@ -71,6 +71,7 @@ int32_t tensometer_reading = 0;
 
 char response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
 char url_buffer[SCRIPT_URL_BUFFER_SIZE];
+char script_response_buffer[10] = {0};
 
 esp_err_t synchronise_clock(){
     char ntc_response[1024] = {0};
@@ -82,7 +83,7 @@ esp_err_t synchronise_clock(){
         return ESP_FAIL;
     }
 
-    if (gsm_send_http_request("http://worldtimeapi.org/api/timezone/Poland", "", ntc_response, 10000) != GSM_OK){
+    if (gsm_send_http_request("http://worldtimeapi.org/api/timezone/Poland", ntc_response, 10000) != GSM_OK){
         ESP_LOGI(TAG, "time sync failed http request error");
         return ESP_FAIL;
     }
@@ -383,38 +384,46 @@ void app_main() {
 
                 LCD_Write_screen("Sending", "Data");
 
-                strcat(url_buffer, "?col1=");
+                strcat(url_buffer, "col1=");
 
-                sprintf(LCD_row1_buf, "Time:%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-                sprintf(LCD_row2_buf, "Date:%02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
+                sprintf(LCD_row1_buf, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+                sprintf(LCD_row2_buf, "%02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
                 
                 strcat(url_buffer, LCD_row1_buf);
-                strcat(url_buffer, LCD_row2_buf);
 
                 strcat(url_buffer, "&col2=");
+
+                strcat(url_buffer, LCD_row2_buf);
+
+                strcat(url_buffer, "&col3=");
 
                 tensometer_reading = tensometer_read_average();
                 sprintf(LCD_row1_buf, "%dg", (int)tensometer_reading);
 
                 strcat(url_buffer, LCD_row1_buf);
 
-                strcat(url_buffer, "&col3=");
+                strcat(url_buffer, "&col4=");
 
                 thermometer_reading = DHT11_read();
-                sprintf(LCD_row1_buf, "%dC", thermometer_reading.temperature);
-                sprintf(LCD_row2_buf, "%d%%", thermometer_reading.humidity);
+                sprintf(LCD_row1_buf, "%d", thermometer_reading.temperature);
+                sprintf(LCD_row2_buf, "%d", thermometer_reading.humidity);
 
                 strcat(url_buffer, LCD_row1_buf);
 
-                strcat(url_buffer, "&col4=");
+                strcat(url_buffer, "&col5=");
 
                 strcat(url_buffer, LCD_row2_buf);
 
-                gsm_send_http_request(url_buffer, "", response_buffer, 10000);
+                gsm_send_http_request(url_buffer, script_response_buffer, 15000);
 
-                LCD_Write_screen("Done", "Sending");
+                if (strstr(script_response_buffer, "OK")){
+                    LCD_Write_screen("Server Response", "OK");
+                    vTaskDelay(pdMS_TO_TICKS(1500));
+                }else{
+                    LCD_Write_screen("Server No", "Response");
+                    vTaskDelay(pdMS_TO_TICKS(1500));
+                }
 
-                vTaskDelay(pdMS_TO_TICKS(1000));
 
                 state = TIME_SCREEN;
             break;

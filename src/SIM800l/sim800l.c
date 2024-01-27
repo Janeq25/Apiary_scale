@@ -178,16 +178,16 @@ gsm_err_t gsm_enter_pin(const char* pin){
 
 }
 
-gsm_err_t gsm_send_http_request(char* url, char* content, char* GET_request_response_buffer, size_t timeout){
+gsm_err_t gsm_send_http_request(char* url, char* GET_request_response_buffer, size_t timeout){
     char url_buffer[MAX_HTTP_URL_LENGTH + 19] = GSM_COMMAND_HTTP_URL;
-    char content_buffer[MAX_HTTP_REQUEST_LENGTH + 23] = GSM_COMMAND_HTTP_CONTENT;
+    // char content_buffer[MAX_HTTP_REQUEST_LENGTH + 23] = GSM_COMMAND_HTTP_CONTENT;
     strcat(url_buffer, "\"");
     strcat(url_buffer, url);
     strcat(url_buffer, "\"\n");
 
-    strcat(content_buffer, "\"");
-    strcat(content_buffer, content);
-    strcat(content_buffer, "\"\n");
+    // strcat(content_buffer, "\"");
+    // strcat(content_buffer, content);
+    // strcat(content_buffer, "\"\n");
 
     if (gsm_get_status() != GSM_OK) return gsm_status;
 
@@ -199,6 +199,13 @@ gsm_err_t gsm_send_http_request(char* url, char* content, char* GET_request_resp
     if (gsm_send_command(GSM_COMMAND_SET_APN, 1000) != GSM_OK) return gsm_status;
     if (strstr(response_buf, "OK") == 0){
         ESP_LOGI(TAG, "failed to initialise apn mode");
+        gsm_status = GSM_ERR_GPRS_FAILED;
+        return GSM_ERR_GPRS_FAILED;
+    }
+
+    if (gsm_send_command(GSM_COMMAND_GET_IP, 1000) != GSM_OK) return gsm_status;
+    if (strstr(response_buf, "OK") == 0){
+        ESP_LOGI(TAG, "failed to get ip");
         gsm_status = GSM_ERR_GPRS_FAILED;
         return GSM_ERR_GPRS_FAILED;
     }
@@ -224,18 +231,37 @@ gsm_err_t gsm_send_http_request(char* url, char* content, char* GET_request_resp
         return GSM_ERR_HTTP_FAILED;
     }
 
-    if (gsm_send_command(url_buffer, 300) != GSM_OK) return gsm_status;
+    if (gsm_send_command(url_buffer, 500) != GSM_OK) return gsm_status;
     if (strstr(response_buf, "OK") == 0){
         ESP_LOGI(TAG, "failed to set http session url");
         gsm_status = GSM_ERR_HTTP_FAILED;
         return GSM_ERR_HTTP_FAILED;
     }
 
-    if (gsm_send_command(content_buffer, 300) != GSM_OK) return gsm_status;
+    if (gsm_send_command(GSM_COMMAND_ALLOW_REDIRECT, 300) != GSM_OK) return gsm_status;
     if (strstr(response_buf, "OK") == 0){
-        ESP_LOGI(TAG, "failed to set http session content");
-
+        ESP_LOGI(TAG, "failed to allow redirect");
+        gsm_status = GSM_ERR_HTTP_FAILED;
+        return GSM_ERR_HTTP_FAILED;
     }
+
+
+    if (strstr(url_buffer, "https") != 0){
+        if (gsm_send_command(GSM_COMMAND_ENABLE_SSL, 300) != GSM_OK) return gsm_status;
+        if (strstr(response_buf, "OK") == 0){
+            ESP_LOGI(TAG, "failed to enable SSL");
+            gsm_status = GSM_ERR_HTTP_FAILED;
+            return GSM_ERR_HTTP_FAILED;
+        }
+    }
+
+    // if (gsm_send_command(content_buffer, 300) != GSM_OK) return gsm_status;
+    // if (strstr(response_buf, "OK") == 0){
+    //     ESP_LOGI(TAG, "failed to set http session content");
+
+    // }
+
+
 
     if (gsm_send_command(GSM_COMMAND_INITIATE_HTTP_REQUEST, timeout) != GSM_OK) return gsm_status;
     if (strstr(response_buf, "ERROR") != 0){
@@ -254,6 +280,8 @@ gsm_err_t gsm_send_http_request(char* url, char* content, char* GET_request_resp
         strcpy(GET_request_response_buffer, response_buf);
     }
     
+    if (gsm_send_command(GSM_COMMAND_DISABLE_SSL, 300) != GSM_OK) return gsm_status;
+
     if (gsm_send_command(GSM_COMMAND_TERMINATE_HTTP_SETVICE, 300) != GSM_OK) return gsm_status;
 
     if (gsm_send_command(GSM_COMMAND_STOP_GPRS, 300) != GSM_OK) return gsm_status;
