@@ -7,6 +7,8 @@
 #include <freertos/task.h>
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
+#include <nvs_flash.h>
+#include <nvs.h>
 
 #include "BUTTONS/buttons.h" //buttons
 #include "HD44780/HD44780.h" //display
@@ -152,21 +154,85 @@ void LCD_Write_screen(char* row1, char* row2){
 
 }
 
-// ------------------------------------------------ deepsleep -------------------------------------------------
+
+// ------------------------------------------------ Non Volatile Memory ------------------------------------------------
 
 struct tm timeinfo;
+
+nvs_handle_t NV_memory_handle;
+
+esp_err_t NV_write_globvars(){
+    if(nvs_open("storage", NVS_READWRITE, &NV_memory_handle) != ESP_OK){
+        ESP_LOGI(TAG, "failed opening nv memory for write");
+        return ESP_FAIL;
+    }
+
+    if (nvs_set_blob(NV_memory_handle, "timeinfo", &timeinfo, sizeof(timeinfo))){
+        ESP_LOGI(TAG, "failed saving timeinfo");
+        return ESP_FAIL;
+    }
+
+    if (nvs_set_i32(NV_memory_handle, "scale_offset", scale_offset)){
+        ESP_LOGI(TAG, "failed saving scale_offset");
+        return ESP_FAIL;
+    }
+
+    if (nvs_set_u64(NV_memory_handle, "wakeup_interval", wakeup_interval)){
+        ESP_LOGI(TAG, "failed saving wakeup_interval");
+        return ESP_FAIL;
+    }
+
+    nvs_close(NV_memory_handle);
+
+    return ESP_OK;
+    
+}
+
+esp_err_t NV_read_globvars(){
+    if(nvs_open("storage", NVS_READONLY, &NV_memory_handle) != ESP_OK){
+        ESP_LOGI(TAG, "failed opening nv memory for read");
+        return ESP_FAIL;
+    }
+
+    size_t length = sizeof(timeinfo);
+
+    if (nvs_get_blob(NV_memory_handle, "timeinfo", &timeinfo, &length)){
+        ESP_LOGI(TAG, "failed reading timeinfo");
+        return ESP_FAIL;
+    }
+
+    if (nvs_get_i32(NV_memory_handle, "scale_offset", &scale_offset)){
+        ESP_LOGI(TAG, "failed reading scale_offset");
+        return ESP_FAIL;
+    }
+
+    if (nvs_get_u64(NV_memory_handle, "wakeup_interval", &wakeup_interval)){
+        ESP_LOGI(TAG, "failed reading wakeup_interval");
+        return ESP_FAIL;
+    }
+
+    nvs_close(NV_memory_handle);
+
+    return ESP_OK;
+    
+}
+
+// ------------------------------------------------ deepsleep -------------------------------------------------
+
 
 void goto_sleep(){
     LCD_Off();
     gsm_enable_sleep();
+
+    NV_write_globvars();
     state = INIT;
-    
     gpio_pullup_en(BUTTON_0_GPIO);
     rtc_gpio_hold_en(BUTTON_0_GPIO);
     esp_sleep_enable_ext0_wakeup(BUTTON_0_GPIO, 0);
     esp_sleep_enable_timer_wakeup(wakeup_interval);
     esp_deep_sleep_start();
 }
+
 
 
 // ------------------------------------------------ sim800l (uart) ------------------------------------------------
@@ -308,7 +374,21 @@ void app_main() {
                 rtc_gpio_hold_dis(BUTTON_0_GPIO);
                 Button_Init(BUTTON_0_GPIO, BUTTON_1_GPIO);
 
-
+                ESP_LOGI(TAG, "Initialising Memory");
+                LCD_Write_screen("initialising", "Memory");
+                if (nvs_flash_init() != ESP_OK){
+                    ESP_LOGI(TAG, "memory init failed");
+                    LCD_Write_screen("Memory init", "Failed, Erasing");
+                    nvs_flash_erase();
+                    nvs_flash_init();
+                    vTaskDelay(pdMS_TO_TICKS(1500));
+                }
+                else{
+                    if (NV_read_globvars() != ESP_OK){
+                        LCD_Write_screen("Failed", "Loading settings");
+                        vTaskDelay(pdMS_TO_TICKS(1500));
+                    }
+                }
 
                 ESP_LOGI(TAG, "Initialising Thermometer");
                 LCD_Write_screen("initialising", "Thermometer");
@@ -455,7 +535,7 @@ void app_main() {
                 }
 
 
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(200));
 
             break;      
 
@@ -480,7 +560,7 @@ void app_main() {
                     state = WEIGHT_SCREEN;
                 }
 
-                vTaskDelay(pdMS_TO_TICKS(500));
+                //vTaskDelay(pdMS_TO_TICKS(500));
 
             break;
 
@@ -514,7 +594,7 @@ void app_main() {
                     state = TEMP_SCREEN;
                 }
 
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(200));
 
             break;        
 
@@ -536,7 +616,7 @@ void app_main() {
                 }
 
                 state = MEASUREMENT;
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(200));
             break;
 
             
@@ -604,7 +684,7 @@ void app_main() {
                 }
 
                 state = SLEEP_SETTINGS;
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(200));
             break;
 
 
@@ -626,7 +706,7 @@ void app_main() {
                 }
 
                 state = SLEEP;
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(200));
             break;
 
             case WAIT_FOR_RESET:
@@ -635,6 +715,7 @@ void app_main() {
 
             vTaskDelay(pdMS_TO_TICKS(2000));
             LCD_Write_screen("Reseting", "");
+            NV_write_globvars();
             vTaskDelay(pdMS_TO_TICKS(2000));
             esp_restart();
 
@@ -642,34 +723,5 @@ void app_main() {
 
 
         }
-        // printf("tensometer data: %" PRIi32 "\n", tensometer_read_average());
-        // printf("thermometer - temp: %i, humid: %i \n", DHT11_read().temperature, DHT11_read().humidity);
-        
-        // time_screen();
-        // vTaskDelay(pdMS_TO_TICKS(1000));
-
-
-
-
-
-
-
-        
-        // switch (eButton_Read(BUTTON_2))
-        // {
-        // case PRESSED:
-        // LCD_Off();
-        // esp_sleep_enable_timer_wakeup(30000000);
-        // esp_deep_sleep_start();
-        //     break;
-        // case RELEASED:
-        // thermometer_read();
-        // LCD_time();
-        // set_time();
-        //     break;
-        // default:
-        //     break;
-        // }
-
     }
 }

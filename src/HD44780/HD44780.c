@@ -61,7 +61,7 @@
         .scl_io_num = SCL_pin,
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 10000
+        .master.clk_speed = 50000
     };
 	i2c_param_config(I2C_NUM_0, &conf);
 	i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0);
