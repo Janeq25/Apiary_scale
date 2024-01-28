@@ -167,11 +167,6 @@ esp_err_t NV_write_globvars(){
         return ESP_FAIL;
     }
 
-    if (nvs_set_blob(NV_memory_handle, "timeinfo", &timeinfo, sizeof(timeinfo))){
-        ESP_LOGI(TAG, "failed saving timeinfo");
-        return ESP_FAIL;
-    }
-
     if (nvs_set_i32(NV_memory_handle, "scale_offset", scale_offset)){
         ESP_LOGI(TAG, "failed saving scale_offset");
         return ESP_FAIL;
@@ -191,13 +186,6 @@ esp_err_t NV_write_globvars(){
 esp_err_t NV_read_globvars(){
     if(nvs_open("storage", NVS_READONLY, &NV_memory_handle) != ESP_OK){
         ESP_LOGI(TAG, "failed opening nv memory for read");
-        return ESP_FAIL;
-    }
-
-    size_t length = sizeof(timeinfo);
-
-    if (nvs_get_blob(NV_memory_handle, "timeinfo", &timeinfo, &length)){
-        ESP_LOGI(TAG, "failed reading timeinfo");
         return ESP_FAIL;
     }
 
@@ -433,38 +421,36 @@ void app_main() {
                     vTaskDelay(pdMS_TO_TICKS(500));
                     if (synchronise_clock() == ESP_FAIL){
                         LCD_Write_screen("Time Sync", "ERROR");
-                        state = WAIT_FOR_RESET;
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                    }
+
+                    LCD_Write_screen("Sending", "Measurements");
+                    timeinfo = updateTime();
+                    if (send_measurements() == ESP_FAIL){
+                        LCD_Write_screen("Resending data", "again");
+                        send_measurements();
+                    }
+
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+
+                    if(eButton_Read(BUTTON_0_GPIO) == PRESSED){
+                        state = TIME_SCREEN;
+                        break;
+                    }
+                    else if (eButton_Read(BUTTON_1_GPIO) == PRESSED){
+                        state = TIME_SCREEN;
+                        break;
+                    }
+                    else if (wakeup_interval == NOT_SET){
+                        state = TIME_SCREEN;
                         break;
                     }
                     else{
-                        LCD_Write_screen("Sending", "Measurements");
-                        timeinfo = updateTime();
-                        if (send_measurements() == ESP_FAIL){
-                            LCD_Write_screen("Resending data", "again");
-                            send_measurements();
-                        }
-
+                        LCD_Write_screen("Going to", "Sleep");
                         vTaskDelay(pdMS_TO_TICKS(1000));
-
-                        if(eButton_Read(BUTTON_0_GPIO) == PRESSED){
-                            state = TIME_SCREEN;
-                            break;
-                        }
-                        else if (eButton_Read(BUTTON_1_GPIO) == PRESSED){
-                            state = TIME_SCREEN;
-                            break;
-                        }
-                        else if (wakeup_interval == NOT_SET){
-                            state = TIME_SCREEN;
-                            break;
-                        }
-                        else{
-                            LCD_Write_screen("Going to", "Sleep");
-                            vTaskDelay(pdMS_TO_TICKS(1000));
-                            goto_sleep();
-                        }
-
+                        goto_sleep();
                     }
+
                     break;
 
                     case GSM_ERR_MODULE_NOT_CONNECTED:
