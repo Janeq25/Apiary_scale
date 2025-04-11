@@ -46,9 +46,11 @@
 #define GSM_COMMAND_ALLOW_REDIRECT              "AT+HTTPPARA=\"REDIR\",1\n"
 #define GSM_COMMAND_ENABLE_SSL                  "AT+HTTPSSL=1\n"
 #define GSM_COMMAND_DISABLE_SSL                 "AT+SSLOPT=0,1\n"
-#define GSM_COMMAND_INITIATE_HTTP_REQUEST       "AT+HTTPACTION=0\n"
+#define GSM_COMMAND_HTTP_ACTION_GET       "AT+HTTPACTION=0\n"
 #define GSM_COMMAND_READ_HTTP_RESPONSE          "AT+HTTPREAD\n"
 #define GSM_COMMAND_TERMINATE_HTTP_SETVICE      "AT+HTTPTERM\n"
+#define GSM_COMMAND_HTTP_ACTION_POST            "AT+HTTPACTION=1\n"
+#define GSM_COMMAND_HTTP_DATA                   "AT+HTTPDATA=1024,1000\n" // "2000,10000\n"
 
 
 // #define GSM_COMMAND_CALL                        "ATD" 
@@ -70,11 +72,12 @@
 
 typedef int gsm_err_t;
 
-gsm_err_t gsm_init(uart_port_t uart_port, uint tx_pin, uint rx_pin, uint rx_buffer_size, char* response_buffer);
+gsm_err_t gsm_init(uart_port_t uart_port, uint8_t tx_pin, uint8_t rx_pin, uint8_t rx_buffer_size, char* response_buffer);
 gsm_err_t gsm_get_status();
 gsm_err_t gsm_enter_pin(const char* pin);
-gsm_err_t gsm_send_command(char* command, uint ms_to_wait);
+gsm_err_t gsm_send_command(char* command, uint8_t ms_to_wait);
 gsm_err_t gsm_send_http_request(char* url, char* GET_request_response_buffer, size_t timeout);
+gsm_err_t gsm_send_http_request_post(char* url, char* data, char* GET_request_response_buffer, size_t timeout);
 gsm_err_t gsm_enable_sleep();
 
 // gsm_err_t gsm_call(const char* phone_number);

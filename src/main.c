@@ -20,8 +20,9 @@
 
 // ------------------------------------------------ google sheets credentials ------------------------------------------------
 
-#define SCRIPT_ID "AKfycbyK8iICZ1q51I5TIr3U0ChHTZSPx7FYG67E91rD2zMAY5iXMSy5kZ1k4eL9s-KQDR0P"
-#define SCRIPT_URL "https://script.google.com/macros/s/" SCRIPT_ID "/exec?"
+// #define SCRIPT_ID "AKfycbyK8iICZ1q51I5TIr3U0ChHTZSPx7FYG67E91rD2zMAY5iXMSy5kZ1k4eL9s-KQDR0P"
+// #define SCRIPT_URL "https://script.google.com/macros/s/" SCRIPT_ID "/exec?"
+#define SCRIPT_URL "http://rnmko-2a02-a31a-a097-fb00-10a5-2629-5310-99a9.a.free.pinggy.link/iot_test_dev2/save_data"
 #define SCRIPT_URL_BUFFER_SIZE 200
 
 // ------------------------------------------------ display config ------------------------------------------------
@@ -277,65 +278,82 @@ esp_err_t synchronise_clock(){
     return ESP_FAIL;
 }
 
-esp_err_t send_measurements(){
-    char url_buffer[SCRIPT_URL_BUFFER_SIZE];
-    char data_buf[24] = {0};
+// esp_err_t send_measurements(){
+//     char url_buffer[SCRIPT_URL_BUFFER_SIZE];
+//     char data_buf[24] = {0};
 
-    memset(url_buffer, 0, SCRIPT_URL_BUFFER_SIZE);
+//     memset(url_buffer, 0, SCRIPT_URL_BUFFER_SIZE);
 
-    strcat(url_buffer, SCRIPT_URL);
+//     strcat(url_buffer, SCRIPT_URL);
 
-    strcat(url_buffer, "col1=");
+//     strcat(url_buffer, "col1=");
 
-    sprintf(data_buf, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+//     sprintf(data_buf, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
     
-    strcat(url_buffer, data_buf);
+//     strcat(url_buffer, data_buf);
 
-    strcat(url_buffer, "&col2=");
+//     strcat(url_buffer, "&col2=");
 
-    sprintf(data_buf, "%02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
+//     sprintf(data_buf, "%02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
 
-    strcat(url_buffer, data_buf);
+//     strcat(url_buffer, data_buf);
 
-    strcat(url_buffer, "&col3=");
+//     strcat(url_buffer, "&col3=");
 
-    tensometer_reading = tensometer_read_average();
-    sprintf(data_buf, "%dg", (int)tensometer_reading);
+//     tensometer_reading = tensometer_read_average();
+//     sprintf(data_buf, "%dg", (int)tensometer_reading);
 
-    strcat(url_buffer, data_buf);
+//     strcat(url_buffer, data_buf);
 
-    strcat(url_buffer, "&col4=");
+//     strcat(url_buffer, "&col4=");
 
-    thermometer_reading = DHT11_read();
-    sprintf(data_buf, "%d", thermometer_reading.temperature);
+//     thermometer_reading = DHT11_read();
+//     sprintf(data_buf, "%d", thermometer_reading.temperature);
 
-    strcat(url_buffer, data_buf);
+//     strcat(url_buffer, data_buf);
 
-    strcat(url_buffer, "&col5=");
+//     strcat(url_buffer, "&col5=");
 
-    sprintf(data_buf, "%d", thermometer_reading.humidity);
+//     sprintf(data_buf, "%d", thermometer_reading.humidity);
 
-    strcat(url_buffer, data_buf);
+//     strcat(url_buffer, data_buf);
 
-    if (gsm_send_http_request(url_buffer, script_response_buffer, 10000) != GSM_OK){
+//     if (gsm_send_http_request(url_buffer, script_response_buffer, 10000) != GSM_OK){
+//         LCD_Write_screen("Data send", "failed GSM ERR");
+//         vTaskDelay(pdMS_TO_TICKS(1500));
+//         return ESP_FAIL;
+//     }
+//     else{
+//         if (strstr(script_response_buffer, "Moved")){
+//             LCD_Write_screen("Server Response", "DATA RECEIVED");
+//             vTaskDelay(pdMS_TO_TICKS(1500));
+//             return ESP_OK;
+//         }else{
+//             LCD_Write_screen("Server No", "Response");
+//             vTaskDelay(pdMS_TO_TICKS(1500));
+//             return ESP_FAIL;
+//         }
+//     }
+
+// }
+
+esp_err_t send_measurements(){
+    char url_buffer[] = SCRIPT_URL;
+    char data_buf[] = "{\"Point0\": {\"timestamp\": \"20250411120611\", \"temperature\": 43, \"humidity\": 5}, \"Point1\": {\"timestamp\": \"20250411120612\", \"temperature\": 89, \"humidity\": 44}, \"Point2\": {\"timestamp\": \"20250411120613\", \"temperature\": 74, \"humidity\": 50}, \"Point3\": {\"timestamp\": \"20250411120614\", \"temperature\": 77, \"humidity\": 24}, \"Point4\": {\"timestamp\": \"20250411120615\", \"temperature\": 69, \"humidity\": 67}, \"Point5\": {\"timestamp\": \"20250411120616\", \"temperature\": 35, \"humidity\": 76}, \"Point6\": {\"timestamp\": \"20250411120617\", \"temperature\": 83, \"humidity\": 99}, \"Point7\": {\"timestamp\": \"20250411120618\", \"temperature\": 38, \"humidity\": 10}, \"Point8\": {\"timestamp\": \"20250411120619\", \"temperature\": 59, \"humidity\": 74}, \"Point9\": {\"timestamp\": \"20250411120620\", \"temperature\": 92, \"humidity\": 59}}";
+
+    
+
+    if (gsm_send_http_request_post(url_buffer, data_buf, script_response_buffer, 10000) != GSM_OK){
         LCD_Write_screen("Data send", "failed GSM ERR");
         vTaskDelay(pdMS_TO_TICKS(1500));
         return ESP_FAIL;
     }
-    else{
-        if (strstr(script_response_buffer, "Moved")){
-            LCD_Write_screen("Server Response", "DATA RECEIVED");
-            vTaskDelay(pdMS_TO_TICKS(1500));
-            return ESP_OK;
-        }else{
-            LCD_Write_screen("Server No", "Response");
-            vTaskDelay(pdMS_TO_TICKS(1500));
-            return ESP_FAIL;
-        }
-    }
+
+    ESP_LOGI(TAG, "Server response: %s", script_response_buffer);
+    
+    return ESP_OK;
 
 }
-
 
 
 // ------------------------------------------------ main ------------------------------------------------
@@ -421,7 +439,7 @@ void app_main() {
                     vTaskDelay(pdMS_TO_TICKS(500));
                     if (synchronise_clock() == ESP_FAIL){
                         LCD_Write_screen("Time Sync", "ERROR");
-                        vTaskDelay(pdMS_TO_TICKS(1000));
+                        vTaskDelay(pdMS_TO_TICKS(5000));
                     }
 
                     LCD_Write_screen("Sending", "Measurements");
