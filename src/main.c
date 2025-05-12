@@ -10,6 +10,8 @@
 #include <nvs_flash.h>
 #include <nvs.h>
 
+
+
 #include "BUTTONS/buttons.h" //buttons
 #include "HD44780/HD44780.h" //display
 #include "RTC/rtc.h" //rtc
@@ -22,7 +24,7 @@
 
 // #define SCRIPT_ID "AKfycbyK8iICZ1q51I5TIr3U0ChHTZSPx7FYG67E91rD2zMAY5iXMSy5kZ1k4eL9s-KQDR0P"
 // #define SCRIPT_URL "https://script.google.com/macros/s/" SCRIPT_ID "/exec?"
-#define SCRIPT_URL "http://rnmko-2a02-a31a-a097-fb00-10a5-2629-5310-99a9.a.free.pinggy.link/iot_test_dev2/save_data"
+#define SCRIPT_URL "http://rnvta-91-230-98-67.a.free.pinggy.link/iot_test_dev2/save_data"
 #define SCRIPT_URL_BUFFER_SIZE 200
 
 // ------------------------------------------------ display config ------------------------------------------------
@@ -65,7 +67,7 @@
 #define ONE_HOUR_us         3600000000
 #define SIX_HOURS_us        6*ONE_HOUR_us
 #define TWELVE_HOURS_us     12*ONE_HOUR_us
-#define TWENTYFOUR_HOURS_us 24*ONE_HOUR_us
+#define TWENTY_FOUR_HOURS_us 24*ONE_HOUR_us
 
 
 
@@ -228,24 +230,30 @@ void goto_sleep(){
 
 
 char response_buffer[GSM_RESPONSE_BUFFER_SIZE] = {0};
-char script_response_buffer[2048] = {0};
-char ntc_response[1024] = {0};
+char script_response_buffer[1024] = {0};
+char ntc_response[10] = {0};
+char data_payload_buffer[128] = {0};
 
 esp_err_t synchronise_clock(){
     int hour=0, min=0, sec=0, day=0, mon=0, year=0;
     char* datetime_ptr = 0;
     char buffer[3] = {0};
-    if(gsm_get_status() != GSM_OK){
-        ESP_LOGI(TAG, "time sync failed gsm_status error");
+
+
+    // if (gsm_send_http_request("http://worldtimeapi.org/api/timezone/Europe/Berlin", ntc_response, 5000) != GSM_OK){
+    //     ESP_LOGI(TAG, "time sync failed http request error");
+    //     return ESP_FAIL;
+    // }
+
+
+    if (gsm_get_time(ntc_response) != GSM_OK){
+        ESP_LOGI(TAG, "time sync failed gsm_get_time error");
         return ESP_FAIL;
     }
 
-    if (gsm_send_http_request("http://worldtimeapi.org/api/timezone/Poland", ntc_response, 5000) != GSM_OK){
-        ESP_LOGI(TAG, "time sync failed http request error");
-        return ESP_FAIL;
-    }
+    datetime_ptr = strstr(ntc_response, "\"");
+    printf("%s\n", ntc_response);
 
-    datetime_ptr = strstr(ntc_response, "datetime");
 
     if (datetime_ptr == 0){
         ESP_LOGI(TAG, "time sync failed invalid http response");
@@ -253,22 +261,22 @@ esp_err_t synchronise_clock(){
     }
     else{
 
-        strncpy(buffer, datetime_ptr + 13, 2);
+        strncpy(buffer, datetime_ptr + 1, 2);
         year = atoi(buffer);
 
-        strncpy(buffer, datetime_ptr + 16, 2);
+        strncpy(buffer, datetime_ptr + 4, 2);
         mon = atoi(buffer);
 
-        strncpy(buffer, datetime_ptr + 19, 2);
+        strncpy(buffer, datetime_ptr + 7, 2);
         day = atoi(buffer);
 
-        strncpy(buffer, datetime_ptr + 22, 2);
+        strncpy(buffer, datetime_ptr + 10, 2);
         hour = atoi(buffer);
 
-        strncpy(buffer, datetime_ptr + 25, 2);
+        strncpy(buffer, datetime_ptr + 13, 2);
         min = atoi(buffer);
 
-
+        
         setTimeDateRTCIntern(hour, min, sec, day, mon, year);
 
         return ESP_OK;
@@ -278,70 +286,31 @@ esp_err_t synchronise_clock(){
     return ESP_FAIL;
 }
 
-// esp_err_t send_measurements(){
-//     char url_buffer[SCRIPT_URL_BUFFER_SIZE];
-//     char data_buf[24] = {0};
+esp_err_t get_timestamp(char* timestamp_str){
 
-//     memset(url_buffer, 0, SCRIPT_URL_BUFFER_SIZE);
 
-//     strcat(url_buffer, SCRIPT_URL);
+    sprintf(timestamp_str, "20%02d%02d%02d%02d%02d%02d", timeinfo.tm_year-100, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
-//     strcat(url_buffer, "col1=");
 
-//     sprintf(data_buf, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-    
-//     strcat(url_buffer, data_buf);
+    return ESP_OK;
+}
 
-//     strcat(url_buffer, "&col2=");
+// {\"Point0\": {\"timestamp\": \"20250411120611\", \"temperature\": 43, \"humidity\": 5}, \"Point1\": {\"timestamp\": \"20250411120612\", \"temperature\": 89, \"humidity\": 44},
 
-//     sprintf(data_buf, "%02d-%02d-%02d", timeinfo.tm_mday, timeinfo.tm_mon, timeinfo.tm_year-100);
+esp_err_t format_measurements(char* data_buf, int temperature, int humidity, int weight){
 
-//     strcat(url_buffer, data_buf);
+    char timestamp_str[15] = {0};
 
-//     strcat(url_buffer, "&col3=");
+    get_timestamp(timestamp_str);
 
-//     tensometer_reading = tensometer_read_average();
-//     sprintf(data_buf, "%dg", (int)tensometer_reading);
+    sprintf(data_buf, "{\"Point0\": {\"timestamp\": \"%s\", \"temperature\": %i, \"humidity\": %i}}", timestamp_str, temperature, humidity);
 
-//     strcat(url_buffer, data_buf);
+    return ESP_OK;
+}
 
-//     strcat(url_buffer, "&col4=");
 
-//     thermometer_reading = DHT11_read();
-//     sprintf(data_buf, "%d", thermometer_reading.temperature);
-
-//     strcat(url_buffer, data_buf);
-
-//     strcat(url_buffer, "&col5=");
-
-//     sprintf(data_buf, "%d", thermometer_reading.humidity);
-
-//     strcat(url_buffer, data_buf);
-
-//     if (gsm_send_http_request(url_buffer, script_response_buffer, 10000) != GSM_OK){
-//         LCD_Write_screen("Data send", "failed GSM ERR");
-//         vTaskDelay(pdMS_TO_TICKS(1500));
-//         return ESP_FAIL;
-//     }
-//     else{
-//         if (strstr(script_response_buffer, "Moved")){
-//             LCD_Write_screen("Server Response", "DATA RECEIVED");
-//             vTaskDelay(pdMS_TO_TICKS(1500));
-//             return ESP_OK;
-//         }else{
-//             LCD_Write_screen("Server No", "Response");
-//             vTaskDelay(pdMS_TO_TICKS(1500));
-//             return ESP_FAIL;
-//         }
-//     }
-
-// }
-
-esp_err_t send_measurements(){
+esp_err_t send_measurements(char* data_buf){
     char url_buffer[] = SCRIPT_URL;
-    char data_buf[] = "{\"Point0\": {\"timestamp\": \"20250411120611\", \"temperature\": 43, \"humidity\": 5}, \"Point1\": {\"timestamp\": \"20250411120612\", \"temperature\": 89, \"humidity\": 44}, \"Point2\": {\"timestamp\": \"20250411120613\", \"temperature\": 74, \"humidity\": 50}, \"Point3\": {\"timestamp\": \"20250411120614\", \"temperature\": 77, \"humidity\": 24}, \"Point4\": {\"timestamp\": \"20250411120615\", \"temperature\": 69, \"humidity\": 67}, \"Point5\": {\"timestamp\": \"20250411120616\", \"temperature\": 35, \"humidity\": 76}, \"Point6\": {\"timestamp\": \"20250411120617\", \"temperature\": 83, \"humidity\": 99}, \"Point7\": {\"timestamp\": \"20250411120618\", \"temperature\": 38, \"humidity\": 10}, \"Point8\": {\"timestamp\": \"20250411120619\", \"temperature\": 59, \"humidity\": 74}, \"Point9\": {\"timestamp\": \"20250411120620\", \"temperature\": 92, \"humidity\": 59}}";
-
-    
 
     if (gsm_send_http_request_post(url_buffer, data_buf, script_response_buffer, 10000) != GSM_OK){
         LCD_Write_screen("Data send", "failed GSM ERR");
@@ -444,9 +413,13 @@ void app_main() {
 
                     LCD_Write_screen("Sending", "Measurements");
                     timeinfo = updateTime();
-                    if (send_measurements() == ESP_FAIL){
-                        LCD_Write_screen("Resending data", "again");
-                        send_measurements();
+
+                    thermometer_reading = DHT11_read(); 
+                    tensometer_reading = tensometer_read_average();
+                    format_measurements(data_payload_buffer, thermometer_reading.temperature, thermometer_reading.humidity, (int)(tensometer_reading));
+
+                    if (send_measurements(data_payload_buffer) == ESP_FAIL){
+                        LCD_Write_screen("Sending", "failed");
                     }
 
                     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -616,7 +589,12 @@ void app_main() {
                 if (eButton_Read(BUTTON_1) == PRESSED){
                     LCD_Write_screen("Sending", "Data");
                     vTaskDelay(pdMS_TO_TICKS(500));
-                    send_measurements();
+
+                    thermometer_reading = DHT11_read(); 
+                    tensometer_reading = tensometer_read_average();
+                    format_measurements(data_payload_buffer, thermometer_reading.temperature, thermometer_reading.humidity, (int)(tensometer_reading));
+
+                    send_measurements(data_payload_buffer);
                 }
 
                 state = MEASUREMENT;
@@ -663,12 +641,12 @@ void app_main() {
                     case TWELVE_HOURS_us:
                     LCD_Write_screen("Wakeup Every", "12 hours");
                     if (eButton_Read(BUTTON_1) == PRESSED){
-                        wakeup_interval = TWENTYFOUR_HOURS_us;
+                    wakeup_interval = TWENTY_FOUR_HOURS_us;
                         break;
                     }
                     break;
 
-                    case TWENTYFOUR_HOURS_us:
+                    case TWENTY_FOUR_HOURS_us:
                     LCD_Write_screen("Wakeup Every", "24 hours");
                     if (eButton_Read(BUTTON_1) == PRESSED){
                         wakeup_interval = NOT_SET;
@@ -729,3 +707,46 @@ void app_main() {
         }
     }
 }
+
+
+
+// void app_main(){
+
+//     gsm_init(USED_UART, GSM_TX_PIN, GSM_RX_PIN, GSM_RESPONSE_BUFFER_SIZE, response_buffer);
+
+//     gsm_get_status();
+//     char ntc_response[1024] = {0};
+
+//     while (1)
+//     {
+//         if (gsm_get_time(ntc_response) != GSM_OK){
+//             ESP_LOGI(TAG, "time sync failed gsm_get_time error");
+//             break;
+//         }
+
+//         ESP_LOGI(TAG, "ntc_response: %s", ntc_response);
+//         vTaskDelay(pdMS_TO_TICKS(1000));
+//     }
+//     {
+//         /* code */
+//     }
+    
+
+//     // gsm_send_http_request("http://worldtimeapi.org/api/timezone/Poland", response_buffer, 5000);
+//     // ESP_LOGI(TAG, "HTTP response: %s", response_buffer);
+//     // gsm_send_command("AT+COPS=0,0\n\r", 1000);
+//     // gsm_send_command("AT+CREG?\n\r", 1000);
+//     // gsm_send_command("AT+CSQ?\n\r", 1000);
+//     // gsm_send_command("AT+COPS\n\r", 1000);
+
+//     // gsm_send_command("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"\n\r", 3000);
+//     // gsm_send_command("AT+SAPBR=3,1,\"APN\",\"internet\"\n\r", 3000);
+//     // gsm_send_command("AT+SAPBR=3,1,\"USER\",\"internet\"\n\r", 3000);
+//     // gsm_send_command("AT+SAPBR=3,1,\"PWD\",\"internet\"\n\r", 3000);
+//     // gsm_send_command("AT+SAPBR=1,1\n\r", 3000);
+//     // gsm_send_command("AT+SAPBR=2,1\n\r", 3000);
+
+// }
+
+
+
