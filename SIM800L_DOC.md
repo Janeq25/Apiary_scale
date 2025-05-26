@@ -50,59 +50,109 @@ void app_main() {
 }
 ```
 
-## AT Command Sequence Explanation
+## AT Command Reference
 
-### Initialization (`gsm_init`)
-1. **UART Setup:** Configure UART for SIM800L communication.
-2. **Module Ready:** `AT` - Check if module responds.
-3. **Module Reset:** `AT+CFUN=1,1` - Reset the module.
-4. **Extended Error Reporting:** `AT+CMEE=2` - Enable verbose error messages (debug).
-5. **Disable Echo:** `ATE0` - Disable command echo.
-6. **GPRS Enable:**
-    - `AT+SAPBR=3,1,"Contype","GPRS"` - Set bearer profile to GPRS.
-    - `AT+SAPBR=3,1,"APN","internet"` - Set APN.
-    - `AT+SAPBR=3,1,"USER","internet"` - Set APN user.
-    - `AT+SAPBR=3,1,"PWD","internet"` - Set APN password.
-    - `AT+SAPBR=1,1` - Open GPRS context.
-    - `AT+SAPBR=2,1` - Query GPRS context IP.
-7. **NTP Time Sync:**
-    - `AT+CNTPCID=1` - Set NTP profile.
-    - `AT+CNTP="pool.ntp.org",8` - Set NTP server.
-    - `AT+CNTP` - Start NTP sync.
+See below for explanations of all AT commands used in this library:
 
-### Status Check (`gsm_get_status`)
-- `AT` - Check module.
-- `AT+CSMINS?` - SIM status.
-- `AT+CPIN?` - PIN status.
-- `AT+CSQ` - Signal quality.
-- `AT+CGATT?` - GPRS attach status.
-- `AT+CREG?` - Network registration.
+### Basic Module Configuration
 
-### HTTP GET Request (`gsm_send_http_request`)
-1. `AT+HTTPINIT` - Initialize HTTP service.
-2. `AT+HTTPPARA="CID",1` - Set HTTP bearer profile.
-3. `AT+HTTPPARA="URL","..."` - Set URL.
-4. `AT+HTTPACTION=0` - Start GET request.
-5. `AT+HTTPREAD` - Read response.
-6. `AT+HTTPTERM` - Terminate HTTP service.
+- **UART Setup**
+  - Configures serial communication between microcontroller and SIM800L (typically 9600 or 115200 baud)
+- **`AT`**
+  - Basic "Attention" command to check if module is responsive
+  - Expected response: "OK"
+- **`AT+CFUN=1,1`**
+  - Full functionality reset (1,1 = reset after setting)
+  - Restarts the module completely
+- **`AT+CMEE=2`**
+  - Enables extended error reporting (verbose mode)
+  - Provides detailed error codes for troubleshooting
+- **`ATE0`**
+  - Disables command echo (module won't repeat commands back)
+  - Reduces serial traffic
 
-### HTTP POST Request (`gsm_send_http_request_post`)
-1. `AT+HTTPINIT` - Initialize HTTP service.
-2. `AT+HTTPPARA="CID",1` - Set HTTP bearer profile.
-3. `AT+HTTPPARA="URL","..."` - Set URL.
-4. `AT+HTTPPARA=CONTENT,application/json` - Set content type.
-5. `AT+HTTPDATA=1024,1000` - Prepare to send data.
-6. Send data payload.
-7. `AT+HTTPACTION=1` - Start POST request.
-8. `AT+HTTPREAD` - Read response.
-9. `AT+HTTPTERM` - Terminate HTTP service.
+### GPRS Configuration
 
-### Time Synchronization (`gsm_get_time`)
-- `AT+CCLK?` - Get current time from module (after NTP sync).
+- **`AT+SAPBR=3,1,"Contype","GPRS"`**
+  - Sets Bearer Profile 1 connection type to GPRS
+- **`AT+SAPBR=3,1,"APN","internet"`**
+  - Sets APN (Access Point Name) for GPRS connection
+  - Replace "internet" with your carrier's APN
+- **`AT+SAPBR=3,1,"USER","internet"`**
+  - Sets username for APN authentication (if required)
+- **`AT+SAPBR=3,1,"PWD","internet"`**
+  - Sets password for APN authentication (if required)
+- **`AT+SAPBR=1,1`**
+  - Opens GPRS context (activates data connection)
+- **`AT+SAPBR=2,1`**
+  - Queries GPRS context to get assigned IP address
 
-### Sleep Mode (`gsm_enable_sleep`)
-- `AT+SAPBR=0,1` - Close GPRS context.
-- `AT+CSCLK=2` - Enable sleep mode.
+### NTP Time Synchronization
+
+- **`AT+CNTPCID=1`**
+  - Sets NTP client to use Bearer Profile 1
+- **`AT+CNTP="pool.ntp.org",8`**
+  - Configures NTP server (pool.ntp.org) with timezone (+8)
+- **`AT+CNTP`**
+  - Initiates NTP time synchronization
+
+### Status Check Commands
+
+- **`AT+CSMINS?`**
+  - Checks SIM card insertion status
+- **`AT+CPIN?`**
+  - Checks if PIN is required/verified
+- **`AT+CSQ`**
+  - Gets signal quality report (0-31, higher is better)
+- **`AT+CGATT?`**
+  - Checks GPRS attachment status (1=attached)
+- **`AT+CREG?`**
+  - Checks network registration status
+
+### HTTP GET Request
+
+- **`AT+HTTPINIT`**
+  - Initializes HTTP service
+- **`AT+HTTPPARA="CID",1`**
+  - Sets HTTP to use Bearer Profile 1
+- **`AT+HTTPPARA="URL","..."`**
+  - Sets target URL for HTTP request
+- **`AT+HTTPACTION=0`**
+  - Executes HTTP GET request (0=GET)
+- **`AT+HTTPREAD`**
+  - Reads HTTP response data
+- **`AT+HTTPTERM`**
+  - Terminates HTTP service
+
+### HTTP POST Request
+
+- **`AT+HTTPPARA=CONTENT,application/json`**
+  - Sets content type for POST request
+- **`AT+HTTPDATA=1024,1000`**
+  - Prepares to receive data (1024 bytes, 1000ms timeout)
+  - After this command, module expects raw data
+- **`AT+HTTPACTION=1`**
+  - Executes HTTP POST request (1=POST)
+
+### Time Management
+
+- **`AT+CCLK?`**
+  - Gets current time from module's RTC (after NTP sync)
+  - Format: "yy/MM/dd,hh:mm:ss±zz"
+
+### Sleep Mode
+
+- **`AT+SAPBR=0,1`**
+  - Closes GPRS context (disconnects data)
+- **`AT+CSCLK=2`**
+  - Enables sleep mode (2=enable with wakeup on UART activity)
+
+### Notes
+- All commands should end with CRLF (\r\n)
+- Responses typically end with CRLF
+- Timeouts vary (typically 1-5 seconds for operations)
+- Error responses begin with "+CME ERROR:" when extended errors enabled
+- APN settings vary by mobile network provider
 
 ## Error Codes
 - `GSM_OK` (0): Success
@@ -116,7 +166,7 @@ void app_main() {
 - `GSM_ERR_GPRS_FAILED` (7): GPRS setup failed
 - `GSM_ERR_NOT_REGISTERED_IN_NETWORK` (8): Not registered in network
 
-## Notes
+## Additional Notes
 - APN, user, and password are set for Orange network by default. Change in `sim800l.h` if needed.
 - All functions return a `gsm_err_t` error code for status checking.
 - Debug output is enabled by default (`GSM_DEBUG`).
