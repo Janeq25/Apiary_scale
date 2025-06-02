@@ -18,7 +18,7 @@
 #include "HX711/hx711_lib.h" //tensometer
 #include "DHT11/dht11.h" //thermometer
 #include "SIM800l/sim800l.h"
-
+#include "ESPNOW/espnow.h" //espnow
 
 // ------------------------------------------------ google sheets credentials ------------------------------------------------
 
@@ -240,12 +240,6 @@ esp_err_t synchronise_clock(){
     char buffer[3] = {0};
 
 
-    // if (gsm_send_http_request("http://worldtimeapi.org/api/timezone/Europe/Berlin", ntc_response, 5000) != GSM_OK){
-    //     ESP_LOGI(TAG, "time sync failed http request error");
-    //     return ESP_FAIL;
-    // }
-
-
     if (gsm_get_time(ntc_response) != GSM_OK){
         ESP_LOGI(TAG, "time sync failed gsm_get_time error");
         return ESP_FAIL;
@@ -280,25 +274,17 @@ esp_err_t synchronise_clock(){
         setTimeDateRTCIntern(hour, min, sec, day, mon, year);
 
         return ESP_OK;
-
     }
-
     return ESP_FAIL;
 }
 
 esp_err_t get_timestamp(char* timestamp_str){
-
-
     sprintf(timestamp_str, "20%02d%02d%02d%02d%02d%02d", timeinfo.tm_year-100, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-
-
     return ESP_OK;
 }
 
-// {\"Point0\": {\"timestamp\": \"20250411120611\", \"temperature\": 43, \"humidity\": 5}, \"Point1\": {\"timestamp\": \"20250411120612\", \"temperature\": 89, \"humidity\": 44},
 
 esp_err_t format_measurements(char* data_buf, int temperature, int humidity, int weight){
-
     char timestamp_str[15] = {0};
 
     get_timestamp(timestamp_str);
@@ -324,6 +310,14 @@ esp_err_t send_measurements(char* data_buf){
 
 }
 
+static void espnow_recv_master(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
+    ESP_LOGI(TAG, "test");
+
+}
+
+static void espnow_recv_slave(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
+    ESP_LOGI(TAG, "test");
+}
 
 // ------------------------------------------------ main ------------------------------------------------
 
@@ -334,6 +328,8 @@ void app_main() {
         switch (state){
 
             case INIT:
+
+                ESP_LOGI(TAG, "Initialising espnow");
 
                 ESP_LOGI(TAG, "initialising screen");
                 LCD_init(LCD_ADDR, LCD_SDA_PIN, LCD_SCL_PIN, LCD_COLS, LCD_ROWS);
@@ -404,6 +400,8 @@ void app_main() {
                     case GSM_OK:
                     ESP_LOGI(TAG, "GSM ok");
 
+                    espnow_init(espnow_recv_slave);
+
                     LCD_Write_screen("Downloading", "Time");
                     vTaskDelay(pdMS_TO_TICKS(500));
                     if (synchronise_clock() == ESP_FAIL){
@@ -447,6 +445,7 @@ void app_main() {
                     case GSM_ERR_MODULE_NOT_CONNECTED:
                     LCD_Write_screen("GSM module", "Not Connected");
                     state = WAIT_FOR_RESET;
+                    espnow_init(espnow_recv_master);
                     break;
 
                     case GSM_ERR_SIM_NOT_INSERTED:
